@@ -1,3 +1,8 @@
+extern crate i3ipc;
+use i3ipc::I3Connection;
+use i3ipc::I3EventListener;
+use i3ipc::Subscription;
+
 use std::time::SystemTime;
 use std::fs::File;
 use std::io::prelude::*;
@@ -24,6 +29,7 @@ const BAT_IND: &str        = "";
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
 const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW_GREEN];
 
+// Function to get a string representing the time
 fn time () -> String
 {
     let now = SystemTime::now();
@@ -35,6 +41,7 @@ fn time () -> String
     time_string(hour) + &paint(":", BW_LIGHTERGREY, "F") + &time_string(minute)
 }
 
+// Function for getting the battery indcator
 fn battery () -> String
 {
     let capacity_path = String::from(BAT_PATH) + "capacity";
@@ -54,6 +61,24 @@ fn battery () -> String
     String::from("I you see this something went very wrong")
 }
 
+// Function for getting the workspaces
+fn workspaces () -> String
+{
+    let mut res = String::from("");
+    let mut i3 = I3Connection::connect().unwrap();
+    let spaces = i3.get_workspaces().unwrap().workspaces;
+    for space in spaces {
+        let mut space_string = String::from(" ") + &space.name + " ";
+        if space.focused {
+            space_string = paint(&space_string, BW_LIGHTGREY, "B");
+        } 
+        res += &space_string;
+    }
+
+    res
+}
+
+// Function for painting a string a certain color (not literally)
 fn paint (string: &str, color: &str, to_paint: &str) -> String
 {
     let mut painted = String::from(string);
@@ -70,6 +95,7 @@ fn paint (string: &str, color: &str, to_paint: &str) -> String
     String::from("%{")+to_paint+color+"}"+&painted+"%{"+to_paint+default_color+"}"
 }
 
+// Helper fuction for getting properly formatted time
 fn time_string (time: u64) -> String
 {
     if time < 10 {
@@ -81,13 +107,14 @@ fn time_string (time: u64) -> String
 
 }
 
-fn get_formatted_string (
+// Function for printing the string to pipe to lemonbar
+fn output_data (
     left:   &Vec<impl Fn() -> String>,
     center: &Vec<impl Fn() -> String>,
     right:  &Vec<impl Fn() -> String>
-    ) -> String
+    )
 {
-    let begin     = String::from("");
+    let begin     = "";
     let end       = " ";
     let separator = " ";
 
@@ -119,19 +146,33 @@ fn get_formatted_string (
         }
     }
 
-    begin + &l + &c + &r + end
+    println!("{}{}{}{}{}", begin, l, c, r, end);
 }
 
 fn main ()
 {
-    let l: Vec<fn() -> String> = Vec::new();
+    let l: Vec<fn() -> String> = vec![workspaces];
     let c: Vec<fn() -> String> = vec![time];
     let r: Vec<fn() -> String> = vec![battery];
+    let l1 = l.clone();
+    let c1 = c.clone();
+    let r1 = r.clone();
 
-    let sleep_time = time::Duration::from_secs(2);
+    let mut listener = I3EventListener::connect().unwrap();
+    listener.subscribe(&[Subscription::Workspace]).unwrap();
 
-    loop {
-        println!("{}", get_formatted_string(&l, &c, &r));
-        thread::sleep(sleep_time);
+    thread::spawn(move || {
+
+        let sleep_time = time::Duration::from_secs(2);
+
+        loop {
+            output_data(&l1, &c1, &r1);
+            thread::sleep(sleep_time);
+        }
+
+    });
+
+    for _event in listener.listen() {
+        output_data(&l, &c, &r);
     }
 }
