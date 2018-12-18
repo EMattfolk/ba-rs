@@ -107,6 +107,21 @@ fn time_string (time: u64) -> String
 
 }
 
+// Function for joining a vector of functions
+fn join_fn (v: &Vec<impl Fn() -> String>, sep: &str) -> String
+{
+    let mut s = String::from("");
+    if v.len() > 0 {
+        s += &v[0]();
+        for i in 1..v.len() {
+            s += sep;
+            s += &v[i]();
+        }
+    }
+
+    s
+}
+
 // Function for printing the string to pipe to lemonbar
 fn output_data (
     left:   &Vec<impl Fn() -> String>,
@@ -118,33 +133,9 @@ fn output_data (
     let end       = " ";
     let separator = " ";
 
-    // TODO: create a function to do this
-    let mut l = String::from("%{l}");
-    if left.len() > 0 {
-        l += &left[0]();
-        for i in 1..left.len() {
-            l += separator;
-            l += &left[i]();
-        }
-    }
-
-    let mut c = String::from("%{c}");
-    if center.len() > 0 {
-        c += &center[0]();
-        for i in 1..center.len() {
-            c += separator;
-            c += &center[i]();
-        }
-    }
-
-    let mut r = String::from("%{r}");
-    if right.len() > 0 {
-        r += &right[0]();
-        for i in 1..right.len() {
-            r += separator;
-            r += &right[i]();
-        }
-    }
+    let l = String::from("%{l}") + &join_fn(left, separator);
+    let c = String::from("%{c}") + &join_fn(center, separator);
+    let r = String::from("%{r}") + &join_fn(right, separator);
 
     println!("{}{}{}{}{}", begin, l, c, r, end);
 }
