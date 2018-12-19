@@ -21,7 +21,11 @@ const BW_ORANGE: &str      = "#ffa724";
 const BW_BACKGROUND: &str  = "#121212";
 const BW_WHITE: &str       = "#f8f6f2";
 
-// Battery path
+// Wireless
+const WL_PATH: &str        = "/sys/class/net/wlp3s0/";
+const WL_IND: &str         = "";
+
+// Battery
 const BAT_PATH: &str       = "/sys/class/power_supply/BAT0/";
 const BAT_IND: &str        = "";
 
@@ -76,6 +80,24 @@ fn workspaces () -> String
     }
 
     res
+}
+
+// Functions for getting wireless status
+fn wireless () -> String
+{
+    // Read the operstate file to see if the network is up
+    let status_path = String::from(WL_PATH) + "operstate";
+    let mut file = File::open(status_path).unwrap();
+    let mut status = String::from("");
+
+    file.read_to_string(&mut status).expect("Unable to read file");
+
+    if status.trim() == "up" {
+        paint(WL_IND, BW_GREEN, "F")
+    }
+    else {
+        paint(WL_IND, BW_RED, "F")
+    }
 }
 
 // Function for painting a string a certain color (not literally)
@@ -144,7 +166,7 @@ fn main ()
 {
     let l: Vec<fn() -> String> = vec![workspaces];
     let c: Vec<fn() -> String> = vec![time];
-    let r: Vec<fn() -> String> = vec![battery];
+    let r: Vec<fn() -> String> = vec![wireless, battery];
     let l1 = l.clone();
     let c1 = c.clone();
     let r1 = r.clone();
