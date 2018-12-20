@@ -9,6 +9,12 @@ use std::io::prelude::*;
 use std::thread;
 use std::time;
 
+/*                         */
+/*       Created by        */
+/*      Erik Mattfolk      */
+/*     2018/12 - 2019/1    */
+/*                         */
+
 // Some colors from badwolf
 const BW_LIGHTGREY: &str   = "#45413b";
 const BW_LIGHTERGREY: &str = "#857f78";
@@ -33,7 +39,11 @@ const BAT_IND: &str        = "";
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
 const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW_GREEN];
 
-// Function to get a string representing the time
+//
+// Modules
+//
+
+// Module to get a string representing the time
 fn time () -> String
 {
     let now = SystemTime::now();
@@ -45,7 +55,7 @@ fn time () -> String
     time_string(hour) + &paint(":", BW_LIGHTERGREY, "F") + &time_string(minute)
 }
 
-// Function for getting the battery indcator
+// Module for getting the battery indcator
 fn battery () -> String
 {
     let capacity_path = String::from(BAT_PATH) + "capacity";
@@ -65,13 +75,15 @@ fn battery () -> String
     String::from("I you see this something went very wrong")
 }
 
-// Function for getting the workspaces
+// Module for getting the workspaces
 fn workspaces () -> String
 {
     let mut res = String::from("");
     let mut i3 = I3Connection::connect().unwrap();
+    println!("{:#?}", i3.get_tree().unwrap());
     let spaces = i3.get_workspaces().unwrap().workspaces;
     for space in spaces {
+        //println!("{:#?}", space);
         let mut space_string = String::from(" ") + &space.name + " ";
         if space.focused {
             space_string = paint(&space_string, BW_LIGHTGREY, "B");
@@ -82,7 +94,7 @@ fn workspaces () -> String
     res
 }
 
-// Functions for getting wireless status
+// Module for getting wireless status
 fn wireless () -> String
 {
     // Read the operstate file to see if the network is up
@@ -100,7 +112,11 @@ fn wireless () -> String
     }
 }
 
-// Function for painting a string a certain color (not literally)
+//
+// Helper functions
+//
+
+// Helper function for painting a string a certain color (not literally)
 fn paint (string: &str, color: &str, to_paint: &str) -> String
 {
     let mut painted = String::from(string);
@@ -129,22 +145,26 @@ fn time_string (time: u64) -> String
 
 }
 
-// Function for joining a vector of functions
+// Helper function for joining a vector of functions
 fn join_fn (v: &Vec<impl Fn() -> String>, sep: &str) -> String
 {
-    let mut s = String::from("");
     if v.len() > 0 {
-        s += &v[0]();
+        let mut s = v[0]();
         for i in 1..v.len() {
             s += sep;
             s += &v[i]();
-        }
+        } s
     }
-
-    s
+    else {
+        String::from("")
+    }
 }
 
-// Function for printing the string to pipe to lemonbar
+//
+// Program functions
+//
+
+// Program function for printing the string to pipe to lemonbar
 fn output_data (
     left:   &Vec<impl Fn() -> String>,
     center: &Vec<impl Fn() -> String>,
@@ -162,6 +182,7 @@ fn output_data (
     println!("{}{}{}{}{}", begin, l, c, r, end);
 }
 
+// The main function. This is where the magic happens
 fn main ()
 {
     let l: Vec<fn() -> String> = vec![workspaces];
