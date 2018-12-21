@@ -2,6 +2,8 @@ extern crate i3ipc;
 use i3ipc::I3Connection;
 use i3ipc::I3EventListener;
 use i3ipc::Subscription;
+use i3ipc::reply::Node;
+use i3ipc::reply::NodeType;
 
 use std::time::SystemTime;
 use std::fs::File;
@@ -38,6 +40,14 @@ const BAT_IND: &str        = "";
 // Battery colors
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
 const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW_GREEN];
+
+// Some icons for programs
+const FIREFOX: &str = "";
+const STEAM: &str = "";
+const TERM: &str = "";
+const CODE: &str = "";
+const DISCORD: &str = "";
+const SPOTIFY: &str = "";
 
 //
 // Modules
@@ -78,15 +88,27 @@ fn battery () -> String
 // Module for getting the workspaces
 fn workspaces () -> String
 {
+    // The string to return
     let mut res = String::from("");
+    // The connection to i3. Used to get data
     let mut i3 = I3Connection::connect().unwrap();
-    println!("{:#?}", i3.get_tree().unwrap());
-    let spaces = i3.get_workspaces().unwrap().workspaces;
+    // Vector of workspaces
+    let mut spaces = Vec::new();
+    // Find all workspaces
+    get_workspaces_rec(&mut spaces, i3.get_tree().unwrap());
+    // Create string from workspaces
     for space in spaces {
-        //println!("{:#?}", space);
-        let mut space_string = String::from(" ") + &space.name + " ";
-        if space.focused {
-            space_string = paint(&space_string, BW_LIGHTGREY, "B");
+
+        if space.nodes.is_empty() { continue; }
+        
+        let mut focused = false;
+        for node in space.nodes {
+            focused |= node.focused;
+        }
+
+        let mut space_string = String::from(" ") + &space.name.unwrap() + " ";
+        if focused {
+           space_string = paint(&space_string, BW_LIGHTGREY, "B");
         } 
         res += &space_string;
     }
@@ -115,6 +137,19 @@ fn wireless () -> String
 //
 // Helper functions
 //
+
+// Tree traversal to find workspaces
+fn get_workspaces_rec (data: &mut Vec<Node>, node: Node)
+{
+    if node.nodetype == NodeType::Workspace {
+        data.push(node);
+    }
+    else {
+        for n in node.nodes {
+            get_workspaces_rec(data, n);
+        }
+    }
+}
 
 // Helper function for painting a string a certain color (not literally)
 fn paint (string: &str, color: &str, to_paint: &str) -> String
