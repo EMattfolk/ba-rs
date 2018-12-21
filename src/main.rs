@@ -99,17 +99,20 @@ fn workspaces () -> String
     // Create string from workspaces
     for space in spaces {
 
-        if space.nodes.is_empty() { continue; }
-        
-        let mut focused = false;
+        // Dont include workspaces with zero width
+        if space.rect.2 == 0 { continue; }
+
+        let mut space_string = String::from(" ") + &space.name.unwrap() + " ";
+
+        let mut focused = space.focused;
         for node in space.nodes {
             focused |= node.focused;
         }
 
-        let mut space_string = String::from(" ") + &space.name.unwrap() + " ";
         if focused {
            space_string = paint(&space_string, BW_LIGHTGREY, "B");
         } 
+
         res += &space_string;
     }
 
