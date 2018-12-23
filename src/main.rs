@@ -41,13 +41,15 @@ const BAT_IND: &str        = "";
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
 const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW_GREEN];
 
-// Some icons for programs
+// Some icons for programs, in order of priority
+// TODO: change
 const FIREFOX: &str = "";
-const STEAM: &str = "";
-const TERM: &str = "";
-const CODE: &str = "";
+const STEAM: &str   = "";
 const DISCORD: &str = "";
 const SPOTIFY: &str = "";
+const CODE: &str    = "";
+const TERM: &str    = "";
+const WS_NAMES: [&str; 6] = [TERM, CODE, SPOTIFY, DISCORD, STEAM, FIREFOX];
 
 //
 // Modules
@@ -102,12 +104,37 @@ fn workspaces () -> String
         // Dont include workspaces with zero width
         if space.rect.2 == 0 { continue; }
 
-        let mut space_string = String::from(" ") + &space.name.unwrap() + " ";
+        let mut symbol_index: usize = 0;
 
         let mut focused = space.focused;
         for node in space.nodes {
+
             focused |= node.focused;
+
+            let name = match node.name {
+                Some(n) => n,
+                None => String::from("")
+            };
+
+            // Match the window to the correct name
+            if name.starts_with("nvim") {
+                symbol_index = max(symbol_index, 1);
+            }
+            else if name.starts_with("Spotify") {
+                symbol_index = max(symbol_index, 2);
+            }
+            else if name.starts_with("Discord") {
+                symbol_index = max(symbol_index, 3);
+            }
+            else if name.starts_with("Steam") {
+                symbol_index = max(symbol_index, 4);
+            }
+            else if name.ends_with("Firefox") {
+                symbol_index = max(symbol_index, 5);
+            }
         }
+
+        let mut space_string = String::from(" ") + WS_NAMES[symbol_index] + " ";
 
         if focused {
            space_string = paint(&space_string, BW_LIGHTGREY, "B");
@@ -141,7 +168,14 @@ fn wireless () -> String
 // Helper functions
 //
 
-// Tree traversal to find workspaces
+// Helper function that returns the max of two indexes
+fn max (a: usize, b: usize) -> usize
+{
+    if a > b { a }
+    else     { b }
+}
+
+// Helper function for tree traversal to find workspaces
 fn get_workspaces_rec (data: &mut Vec<Node>, node: Node)
 {
     if node.nodetype == NodeType::Workspace {
