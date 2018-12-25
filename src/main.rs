@@ -8,6 +8,7 @@ use i3ipc::reply::NodeType;
 use std::time::SystemTime;
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::Path;
 use std::thread;
 use std::time;
 
@@ -43,13 +44,14 @@ const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW
 
 // Some icons for programs, in order of priority
 // TODO: change
+const SPOTIFY: &str = "";
 const FIREFOX: &str = "";
 const STEAM: &str   = "";
 const DISCORD: &str = "";
-const SPOTIFY: &str = "";
 const CODE: &str    = "";
 const TERM: &str    = "";
-const WS_NAMES: [&str; 6] = [TERM, CODE, SPOTIFY, DISCORD, STEAM, FIREFOX];
+const EMPTY: &str   = " ";
+const WS_NAMES: [&str; 6] = [TERM, CODE, DISCORD, STEAM, FIREFOX, SPOTIFY];
 
 //
 // Modules
@@ -58,10 +60,11 @@ const WS_NAMES: [&str; 6] = [TERM, CODE, SPOTIFY, DISCORD, STEAM, FIREFOX];
 // Module to get a string representing the time
 fn time () -> String
 {
+    // TODO: A working time system
     let now = SystemTime::now();
     let duration = now.duration_since(SystemTime::UNIX_EPOCH).expect("Error");
     let secs = duration.as_secs() % (24 * 3600);
-    let hour = (secs / 3600 + 1) % 24;
+    let hour = (secs / 3600 + 19) % 24;
     let minute = (secs % 3600) / 60;
 
     time_string(hour) + &paint(":", BW_LIGHTERGREY, "F") + &time_string(minute)
@@ -105,6 +108,7 @@ fn workspaces () -> String
         if space.rect.2 == 0 { continue; }
 
         let mut symbol_index: usize = 0;
+        let mut space_string = String::from(EMPTY);
 
         let mut focused = space.focused;
         for node in space.nodes {
@@ -116,25 +120,40 @@ fn workspaces () -> String
                 None => String::from("")
             };
 
+            // TODO: I really need to become better at coding
             // Match the window to the correct name
-            if name.starts_with("nvim") {
-                symbol_index = max(symbol_index, 1);
+            if symbol_index < 1 && name.starts_with("nvim") {
+                symbol_index = 1;
             }
-            else if name.starts_with("Spotify") {
-                symbol_index = max(symbol_index, 2);
+            else if symbol_index < 2 && name.ends_with("Discord") {
+                symbol_index = 2;
             }
-            else if name.starts_with("Discord") {
-                symbol_index = max(symbol_index, 3);
+            else if symbol_index < 3 && name.starts_with("Steam") {
+                symbol_index = 3;
             }
-            else if name.starts_with("Steam") {
-                symbol_index = max(symbol_index, 4);
+            else if symbol_index < 4 && name.ends_with("Firefox") {
+                symbol_index = 4;
             }
-            else if name.ends_with("Firefox") {
-                symbol_index = max(symbol_index, 5);
+            else if symbol_index < 5 && name.starts_with("Spotify") {
+                symbol_index = 5;
+            }
+            else {
+
+                let name_parts: Vec<&str> = name.split(" ").collect();
+
+                if name_parts.len() > 1 && !Path::new(name_parts[1]).exists() {
+                    symbol_index = 6;
+                    space_string = String::from(WS_NAMES[5]) + " " + &name;
+                }
+
+            }
+
+            if symbol_index <= 5 {
+                space_string = String::from(WS_NAMES[symbol_index]);
             }
         }
 
-        let mut space_string = String::from(" ") + WS_NAMES[symbol_index] + " ";
+        space_string = String::from(" ") + &space_string + " ";
 
         if focused {
            space_string = paint(&space_string, BW_LIGHTGREY, "B");
@@ -167,13 +186,6 @@ fn wireless () -> String
 //
 // Helper functions
 //
-
-// Helper function that returns the max of two indexes
-fn max (a: usize, b: usize) -> usize
-{
-    if a > b { a }
-    else     { b }
-}
 
 // Helper function for tree traversal to find workspaces
 fn get_workspaces_rec (data: &mut Vec<Node>, node: Node)
