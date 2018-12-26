@@ -12,11 +12,19 @@ use std::path::Path;
 use std::thread;
 use std::time;
 
-/*                         */
-/*       Created by        */
-/*      Erik Mattfolk      */
-/*     2018/12 - 2019/1    */
-/*                         */
+/*                                     */
+/*             Created by              */
+/*            Erik Mattfolk            */
+/*               2018/12               */
+/*                                     */
+/*  A status bar data-generator-thing  */
+/*       Designed to be light          */
+/*                                     */
+/*              Features               */
+/*        No unecessary numbers        */
+/*     Cool icons for applications     */
+/*         Minimalistic design         */
+/*                                     */
 
 // Some colors from badwolf
 const BW_LIGHTGREY: &str   = "#45413b";
@@ -43,35 +51,50 @@ const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
 const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW_GREEN];
 
 // Some icons for programs, in order of priority
-// TODO: change
 const SPOTIFY: &str = "";
 const FIREFOX: &str = "";
 const STEAM: &str   = "";
 const DISCORD: &str = "";
 const CODE: &str    = "";
 const TERM: &str    = "";
+const UNDEF: &str   = "";
 const EMPTY: &str   = " ";
-const WS_NAMES: [&str; 6] = [TERM, CODE, DISCORD, STEAM, FIREFOX, SPOTIFY];
+
+// Window names (name, icon, starts_with)
+//
+// name: The name of the program (case sensitive)
+// icon: The icon to indicate the program is running
+// starts_with: Boolean representing if the name appears at the begining of the title
+//     True  => title starts with the name
+//     False => title ends with the name
+const W_NAMES: [(&str, &str, bool); 5] = [
+    ("nvim",    CODE,    true),
+    ("Discord", DISCORD, false),
+    ("Steam",   STEAM,   true),
+    ("Firefox", FIREFOX, false),
+    ("Spotify", SPOTIFY, true)
+];
 
 //
 // Modules
 //
 
+// TODO: UTF time support
 // Module to get a string representing the time
-fn time () -> String
+fn time (data: &mut u64) -> String
 {
     // TODO: A working time system
     let now = SystemTime::now();
     let duration = now.duration_since(SystemTime::UNIX_EPOCH).expect("Error");
     let secs = duration.as_secs() % (24 * 3600);
-    let hour = (secs / 3600 + 19) % 24;
+    let hour = (secs / 3600 + *data) % 24;
     let minute = (secs % 3600) / 60;
 
     time_string(hour) + &paint(":", BW_LIGHTERGREY, "F") + &time_string(minute)
 }
 
 // Module for getting the battery indcator
-fn battery () -> String
+fn battery (_data: &mut u64) -> String
 {
     let capacity_path = String::from(BAT_PATH) + "capacity";
 
@@ -91,7 +114,7 @@ fn battery () -> String
 }
 
 // Module for getting the workspaces
-fn workspaces () -> String
+fn workspaces (data: &mut u64) -> String
 {
     // The string to return
     let mut res = String::from("");
@@ -115,41 +138,49 @@ fn workspaces () -> String
 
             focused |= node.focused;
 
-            let name = match node.name {
+            // TODO: Add floating nodes
+            let node_name = match node.name {
                 Some(n) => n,
                 None => String::from("")
             };
 
-            // TODO: I really need to become better at coding
-            // Match the window to the correct name
-            if symbol_index < 1 && name.starts_with("nvim") {
-                symbol_index = 1;
-            }
-            else if symbol_index < 2 && name.ends_with("Discord") {
-                symbol_index = 2;
-            }
-            else if symbol_index < 3 && name.starts_with("Steam") {
-                symbol_index = 3;
-            }
-            else if symbol_index < 4 && name.ends_with("Firefox") {
-                symbol_index = 4;
-            }
-            else if symbol_index < 5 && name.starts_with("Spotify") {
-                symbol_index = 5;
-            }
-            else {
+            // Spotify integration
+            let name_parts: Vec<&str> = node_name.split(" ").collect();
+            let id = node.id as u64;
 
-                let name_parts: Vec<&str> = name.split(" ").collect();
+            if node_name == "Spotify" {
+                *data = id;
+            }
 
-                if name_parts.len() > 1 && !Path::new(name_parts[1]).exists() {
-                    symbol_index = 6;
-                    space_string = String::from(WS_NAMES[5]) + " " + &name;
+            if name_parts.len() > 1 {
+                if Path::new(name_parts[1]).exists() {
+                    if symbol_index == 0 {
+                        space_string = String::from(TERM);
+                    }
                 }
-
+                else if *data == id {
+                    // TODO: Shorten song names, split at " - "
+                    symbol_index = W_NAMES.len();
+                    space_string = String::from(SPOTIFY) + " " + &node_name;
+                }
+            }
+            else if symbol_index == 0 {
+                space_string = String::from(UNDEF);
             }
 
-            if symbol_index <= 5 {
-                space_string = String::from(WS_NAMES[symbol_index]);
+            // Match the window to the correct name
+            for i in (0..W_NAMES.len()).rev() {
+
+                if i < symbol_index { break; }
+
+                let (w_name, icon, starts_with) = W_NAMES[i];
+
+                if (starts_with && node_name.starts_with(w_name)) ||
+                    (!starts_with && node_name.ends_with(w_name))
+                {
+                    space_string = String::from(icon);
+                    symbol_index = i + 1;
+                }
             }
         }
 
@@ -166,7 +197,7 @@ fn workspaces () -> String
 }
 
 // Module for getting wireless status
-fn wireless () -> String
+fn wireless (_data: &mut u64) -> String
 {
     // Read the operstate file to see if the network is up
     let status_path = String::from(WL_PATH) + "operstate";
@@ -229,14 +260,14 @@ fn time_string (time: u64) -> String
 
 }
 
-// Helper function for joining a vector of functions
-fn join_fn (v: &Vec<impl Fn() -> String>, sep: &str) -> String
+// Helper function for joining a vector of modules
+fn join_module (m: &mut Vec<Module>, sep: &str) -> String
 {
-    if v.len() > 0 {
-        let mut s = v[0]();
-        for i in 1..v.len() {
+    if m.len() > 0 {
+        let mut s = (m[0].function)(&mut m[0].data);
+        for i in 1..m.len() {
             s += sep;
-            s += &v[i]();
+            s += &(m[i].function)(&mut m[0].data);
         } s
     }
     else {
@@ -250,31 +281,51 @@ fn join_fn (v: &Vec<impl Fn() -> String>, sep: &str) -> String
 
 // Program function for printing the string to pipe to lemonbar
 fn output_data (
-    left:   &Vec<impl Fn() -> String>,
-    center: &Vec<impl Fn() -> String>,
-    right:  &Vec<impl Fn() -> String>
+    left:   &mut Vec<Module>,
+    center: &mut Vec<Module>,
+    right:  &mut Vec<Module>
     )
 {
     let begin     = "";
     let end       = " ";
     let separator = " ";
 
-    let l = String::from("%{l}") + &join_fn(left, separator);
-    let c = String::from("%{c}") + &join_fn(center, separator);
-    let r = String::from("%{r}") + &join_fn(right, separator);
+    let l = String::from("%{l}") + &join_module(left, separator);
+    let c = String::from("%{c}") + &join_module(center, separator);
+    let r = String::from("%{r}") + &join_module(right, separator);
 
     println!("{}{}{}{}{}", begin, l, c, r, end);
+}
+
+struct Module 
+{
+    function: fn(&mut u64) -> String,
+    data: u64
+}
+
+impl Clone for Module
+{
+    fn clone(&self) -> Module
+    {
+        Module { function: self.function.clone(), data: self.data }
+    }
 }
 
 // The main function. This is where the magic happens
 fn main ()
 {
-    let l: Vec<fn() -> String> = vec![workspaces];
-    let c: Vec<fn() -> String> = vec![time];
-    let r: Vec<fn() -> String> = vec![wireless, battery];
-    let l1 = l.clone();
-    let c1 = c.clone();
-    let r1 = r.clone();
+    let workspaces = Module { function: workspaces, data: 0 };
+    let time       = Module { function: time,       data: 19 };
+    let wireless   = Module { function: wireless,   data: 0 };
+    let battery    = Module { function: battery,    data: 0 };
+
+    // TODO: Add Arc for cross thread stuff
+    let mut l: Vec<Module> = vec![workspaces];
+    let mut c: Vec<Module> = vec![time];
+    let mut r: Vec<Module> = vec![wireless, battery];
+    let mut l1 = l.clone();
+    let mut c1 = c.clone();
+    let mut r1 = r.clone();
 
     let mut listener = I3EventListener::connect().unwrap();
     listener.subscribe(&[Subscription::Workspace]).unwrap();
@@ -284,13 +335,13 @@ fn main ()
         let sleep_time = time::Duration::from_secs(2);
 
         loop {
-            output_data(&l1, &c1, &r1);
+            output_data(&mut l1, &mut c1, &mut r1);
             thread::sleep(sleep_time);
         }
 
     });
 
     for _event in listener.listen() {
-        output_data(&l, &c, &r);
+        output_data(&mut l, &mut c, &mut r);
     }
 }
