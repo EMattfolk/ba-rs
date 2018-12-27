@@ -21,10 +21,11 @@ use std::time;
 /*  A status bar data-generator-thing  */
 /*       Designed to be light          */
 /*                                     */
-/*              Features               */
+/*             -Features-              */
 /*        No unecessary numbers        */
 /*     Cool icons for applications     */
 /*         Minimalistic design         */
+/*         Spotify Intgration          */
 /*                                     */
 
 // Some colors from badwolf
@@ -124,6 +125,9 @@ fn workspaces (data: &mut u64) -> String
     let mut spaces = Vec::new();
     // Find all workspaces
     get_workspaces_rec(&mut spaces, i3.get_tree().unwrap());
+
+    /* Cool idea: show 'gaps' with grey numbers */
+
     // Create string from workspaces
     for space in spaces {
 
@@ -134,14 +138,17 @@ fn workspaces (data: &mut u64) -> String
         let mut space_string = String::from(EMPTY);
 
         let mut focused = space.focused;
-        for node in space.nodes {
+
+        let mut nodes = Vec::new();
+        get_nodes_rec(&mut nodes, space);
+
+        for node in nodes {
 
             focused |= node.focused;
 
-            // TODO: Add floating nodes
             let node_name = match node.name {
                 Some(n) => n,
-                None => String::from("")
+                None => String::from("") // Might need changing
             };
 
             // Match the window to the correct name
@@ -163,28 +170,41 @@ fn workspaces (data: &mut u64) -> String
 
             if matched { continue; }
 
-            // Spotify integration
+            /*             */
+            /*   Spotify   */
+            /* integration */
+            /*             */
+
             let name_parts: Vec<&str> = node_name.split(" ").collect();
             let id = node.id as u64;
 
+            // Set data to the id of the Spotify window
             if node_name == "Spotify" {
                 *data = id;
+                space_string = String::from(SPOTIFY);
+                symbol_index = W_NAMES.len();
+                continue;
             }
 
+            // Print song info
+            if *data == id {
+                let song_info: Vec<&str> = node_name.split(" - ").collect();
+                space_string = String::from(SPOTIFY) + " " + song_info[0];
+                space_string = space_string + " - " + song_info[1];
+                symbol_index = W_NAMES.len();
+                continue;
+            }
+
+            /*             */
+            /* End Spotify */
+            /* integration */
+            /*             */
+
+            // If we don't find a icon for the window
             if symbol_index == 0 {
                 space_string = String::from(UNDEF);
-            }
-
-            if name_parts.len() > 1 {
-                if Path::new(name_parts[1]).exists() {
-                    if symbol_index == 0 {
-                        space_string = String::from(TERM);
-                    }
-                }
-                else if *data == id {
-                    // TODO: Shorten song names, split at " - "
-                    symbol_index = W_NAMES.len();
-                    space_string = String::from(SPOTIFY) + " " + &node_name;
+                if name_parts.len() > 1 && Path::new(name_parts[1]).exists() {
+                    space_string = String::from(TERM);
                 }
             }
         }
@@ -232,6 +252,22 @@ fn get_workspaces_rec (data: &mut Vec<Node>, node: Node)
     else {
         for n in node.nodes {
             get_workspaces_rec(data, n);
+        }
+    }
+}
+
+// Helper function for tree traversal to find nodes
+fn get_nodes_rec (data: &mut Vec<Node>, node: Node)
+{
+    if node.nodes.len() == 0 && node.floating_nodes.len() == 0 {
+        data.push(node);
+    }
+    else {
+        for n in node.nodes {
+            get_nodes_rec(data, n);
+        }
+        for n in node.floating_nodes {
+            get_nodes_rec(data, n);
         }
     }
 }
