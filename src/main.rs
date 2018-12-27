@@ -5,6 +5,7 @@ use i3ipc::Subscription;
 use i3ipc::reply::Node;
 use i3ipc::reply::NodeType;
 
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use std::fs::File;
 use std::io::prelude::*;
@@ -67,12 +68,11 @@ const EMPTY: &str   = " ";
 // starts_with: Boolean representing if the name appears at the begining of the title
 //     True  => title starts with the name
 //     False => title ends with the name
-const W_NAMES: [(&str, &str, bool); 5] = [
+const W_NAMES: [(&str, &str, bool); 4] = [
     ("nvim",    CODE,    true),
     ("Discord", DISCORD, false),
     ("Steam",   STEAM,   true),
     ("Firefox", FIREFOX, false),
-    ("Spotify", SPOTIFY, true)
 ];
 
 //
@@ -144,12 +144,35 @@ fn workspaces (data: &mut u64) -> String
                 None => String::from("")
             };
 
+            // Match the window to the correct name
+            let mut matched = false;
+            for i in (0..W_NAMES.len()).rev() {
+
+                if i < symbol_index { break; }
+
+                let (w_name, icon, starts_with) = W_NAMES[i];
+
+                if (starts_with && node_name.starts_with(w_name)) ||
+                    (!starts_with && node_name.ends_with(w_name))
+                {
+                    space_string = String::from(icon);
+                    symbol_index = i + 1;
+                    matched = true;
+                }
+            }
+
+            if matched { continue; }
+
             // Spotify integration
             let name_parts: Vec<&str> = node_name.split(" ").collect();
             let id = node.id as u64;
 
             if node_name == "Spotify" {
                 *data = id;
+            }
+
+            if symbol_index == 0 {
+                space_string = String::from(UNDEF);
             }
 
             if name_parts.len() > 1 {
@@ -162,24 +185,6 @@ fn workspaces (data: &mut u64) -> String
                     // TODO: Shorten song names, split at " - "
                     symbol_index = W_NAMES.len();
                     space_string = String::from(SPOTIFY) + " " + &node_name;
-                }
-            }
-            else if symbol_index == 0 {
-                space_string = String::from(UNDEF);
-            }
-
-            // Match the window to the correct name
-            for i in (0..W_NAMES.len()).rev() {
-
-                if i < symbol_index { break; }
-
-                let (w_name, icon, starts_with) = W_NAMES[i];
-
-                if (starts_with && node_name.starts_with(w_name)) ||
-                    (!starts_with && node_name.ends_with(w_name))
-                {
-                    space_string = String::from(icon);
-                    symbol_index = i + 1;
                 }
             }
         }
@@ -314,34 +319,55 @@ impl Clone for Module
 // The main function. This is where the magic happens
 fn main ()
 {
+    // Initialize modules
     let workspaces = Module { function: workspaces, data: 0 };
     let time       = Module { function: time,       data: 19 };
     let wireless   = Module { function: wireless,   data: 0 };
     let battery    = Module { function: battery,    data: 0 };
 
-    // TODO: Add Arc for cross thread stuff
-    let mut l: Vec<Module> = vec![workspaces];
-    let mut c: Vec<Module> = vec![time];
-    let mut r: Vec<Module> = vec![wireless, battery];
-    let mut l1 = l.clone();
-    let mut c1 = c.clone();
-    let mut r1 = r.clone();
+    // Arrange modules
+    let left   = vec![workspaces];
+    let center = vec![time];
+    let right  = vec![wireless, battery];
 
-    let mut listener = I3EventListener::connect().unwrap();
-    listener.subscribe(&[Subscription::Workspace]).unwrap();
+    // Arcs used to share module data across threads
+    let l1 = Arc::new(Mutex::new(left));
+    let c1 = Arc::new(Mutex::new(center));
+    let r1 = Arc::new(Mutex::new(right));
+    let l2 = l1.clone();
+    let c2 = c1.clone();
+    let r2 = r1.clone();
 
+    // Spawn a thread that updates bar every 2 seconds
     thread::spawn(move || {
 
         let sleep_time = time::Duration::from_secs(2);
 
         loop {
-            output_data(&mut l1, &mut c1, &mut r1);
+
+            {
+                let mut l = l1.lock().unwrap();
+                let mut c = c1.lock().unwrap();
+                let mut r = r1.lock().unwrap();
+
+                output_data(&mut l, &mut c, &mut r);
+            }
+
             thread::sleep(sleep_time);
         }
 
     });
 
+    // Set up i3 listener
+    let mut listener = I3EventListener::connect().unwrap();
+    listener.subscribe(&[Subscription::Workspace]).unwrap();
+
     for _event in listener.listen() {
+
+        let mut l = l2.lock().unwrap();
+        let mut c = c2.lock().unwrap();
+        let mut r = r2.lock().unwrap();
+
         output_data(&mut l, &mut c, &mut r);
     }
 }
