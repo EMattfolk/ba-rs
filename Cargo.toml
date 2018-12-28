@@ -1,5 +1,5 @@
 [package]
-name = "bardata-rust"
+name = "bardata"
 version = "0.1.0"
 authors = ["Erik Mattfolk <erik.mattfolk@gmail.com>"]
 edition = "2018"
