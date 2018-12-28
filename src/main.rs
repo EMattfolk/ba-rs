@@ -259,7 +259,10 @@ fn get_workspaces_rec (data: &mut Vec<Node>, node: Node)
 // Helper function for tree traversal to find nodes
 fn get_nodes_rec (data: &mut Vec<Node>, node: Node)
 {
-    if node.nodes.len() == 0 && node.floating_nodes.len() == 0 {
+    if node.nodes.len() == 0 &&
+       node.floating_nodes.len() == 0 &&
+       node.nodetype != NodeType::Workspace
+    {
         data.push(node);
     }
     else {
