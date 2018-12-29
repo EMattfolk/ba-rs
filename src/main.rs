@@ -44,6 +44,10 @@ const BW_WHITE: &str       = "#f8f6f2";
 const WL_PATH: &str        = "/sys/class/net/wlp3s0/";
 const WL_IND: &str         = "";
 
+// Ethernet
+const ETH_PATH: &str       = "/sys/class/net/enp2s0/";
+const ETH_IND: &str        = "";
+
 // Battery
 const BAT_PATH: &str       = "/sys/class/power_supply/BAT0/";
 const BAT_IND: &str        = "";
@@ -221,10 +225,10 @@ fn workspaces (data: &mut u64) -> String
     res
 }
 
-// Module for getting wireless status
-fn wireless (_data: &mut u64) -> String
+// Module for getting network status
+fn network (_data: &mut u64) -> String
 {
-    // Read the operstate file to see if the network is up
+    // Read the operstate file to see if the wireless is up
     let status_path = String::from(WL_PATH) + "operstate";
     let mut file = File::open(status_path).unwrap();
     let mut status = String::from("");
@@ -232,7 +236,18 @@ fn wireless (_data: &mut u64) -> String
     file.read_to_string(&mut status).expect("Unable to read file");
 
     if status.trim() == "up" {
-        paint(WL_IND, BW_GREEN, "F")
+        return paint(WL_IND, BW_GREEN, "F");
+    }
+
+    // Read the operstate file to see if the ethernet is up
+    let status_path = String::from(ETH_PATH) + "operstate";
+    let mut file = File::open(status_path).unwrap();
+    let mut status = String::from("");
+
+    file.read_to_string(&mut status).expect("Unable to read file");
+
+    if status.trim() == "up" {
+        paint(ETH_IND, BW_GREEN, "F")
     }
     else {
         paint(WL_IND, BW_RED, "F")
@@ -361,13 +376,13 @@ fn main ()
     // Initialize modules
     let workspaces = Module { function: workspaces, data: 0 };
     let time       = Module { function: time,       data: 19 };
-    let wireless   = Module { function: wireless,   data: 0 };
+    let network    = Module { function: network,    data: 0 };
     let battery    = Module { function: battery,    data: 0 };
 
     // Arrange modules
     let left   = vec![workspaces];
     let center = vec![time];
-    let right  = vec![wireless, battery];
+    let right  = vec![network, battery];
 
     // Arcs used to share module data across threads
     let l1 = Arc::new(Mutex::new(left));
