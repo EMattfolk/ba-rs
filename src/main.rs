@@ -19,13 +19,13 @@ use std::time;
 /*               2018/12               */
 /*                                     */
 /*  A status bar data-generator-thing  */
-/*       Designed to be light          */
+/*         Designed to be light        */
 /*                                     */
 /*             -Features-              */
 /*        No unecessary numbers        */
 /*     Cool icons for applications     */
+/*      Music player integration       */
 /*         Minimalistic design         */
-/*         Spotify Intgration          */
 /*                                     */
 
 // Some colors from badwolf
@@ -56,8 +56,12 @@ const BAT_IND: &str        = "";
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
 const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW_GREEN];
 
+// Music
+const MU_PLAYERNAME: &str = "Spotify";
+const MU_PLAYERICO: &str  = "";
+const MU_IND: &str        = "";
+
 // Some icons for programs, in order of priority
-const SPOTIFY: &str = "";
 const FIREFOX: &str = "";
 const STEAM: &str   = "";
 const DISCORD: &str = "";
@@ -132,6 +136,8 @@ fn workspaces (data: &mut u64) -> String
 
     /* Cool idea: show 'gaps' with grey numbers */
 
+    // Flag for if we find a music player window
+    let mut music_found = false;
     // Create string from workspaces
     for space in spaces {
 
@@ -150,13 +156,23 @@ fn workspaces (data: &mut u64) -> String
 
             focused |= node.focused;
 
+            // Get node_name and give the music player highest priority
             let node_name = match node.name {
-                Some(n) => n,
-                None => String::from("") // Might need changing
+                Some(n) => 
+                    if &n == MU_PLAYERNAME || *data == node.id as u64 {
+                        space_string = String::from(MU_PLAYERICO);
+                        *data = node.id as u64;
+                        music_found = true;
+                        break;
+                    }
+                    else {
+                        n
+                    },
+                None =>
+                    String::from("")
             };
 
-            // Match the window to the correct name
-            let mut matched = false;
+            // Match the window to the correct name in order of priority
             for i in (0..W_NAMES.len()).rev() {
 
                 if i < symbol_index { break; }
@@ -168,45 +184,13 @@ fn workspaces (data: &mut u64) -> String
                 {
                     space_string = String::from(icon);
                     symbol_index = i + 1;
-                    matched = true;
                 }
             }
 
-            if matched { continue; }
-
-            /*             */
-            /*   Spotify   */
-            /* integration */
-            /*             */
-
-            let name_parts: Vec<&str> = node_name.split(" ").collect();
-            let id = node.id as u64;
-
-            // Set data to the id of the Spotify window
-            if node_name == "Spotify" {
-                *data = id;
-                space_string = String::from(SPOTIFY);
-                symbol_index = W_NAMES.len();
-                continue;
-            }
-
-            // Print song info
-            if *data == id {
-                let song_info: Vec<&str> = node_name.split(" - ").collect();
-                space_string = String::from(SPOTIFY) + " " + song_info[0];
-                space_string = space_string + " - " + song_info[1];
-                symbol_index = W_NAMES.len();
-                continue;
-            }
-
-            /*             */
-            /* End Spotify */
-            /* integration */
-            /*             */
-
-            // If we don't find a icon for the window
-            if symbol_index == 0 {
+            // If we don't have an icon for the window
+            if symbol_index == 0 && &space_string != TERM {
                 space_string = String::from(UNDEF);
+                let name_parts: Vec<&str> = node_name.split(" ").collect();
                 if name_parts.len() > 1 && Path::new(name_parts[1]).exists() {
                     space_string = String::from(TERM);
                 }
@@ -221,6 +205,9 @@ fn workspaces (data: &mut u64) -> String
 
         res += &space_string;
     }
+
+    // Reset data if there is no music player running
+    if !music_found { *data = 0; }
 
     res
 }
@@ -254,9 +241,50 @@ fn network (_data: &mut u64) -> String
     }
 }
 
+// Module for getting music info
+fn music (data: &mut u64) -> String
+{
+    // The connection to i3. Used to get data
+    let mut i3 = I3Connection::connect().unwrap();
+    // The window name
+    let window_name: String;
+    // Get music window if it exists
+    match get_node_from_name_or_id(i3.get_tree().unwrap(), MU_PLAYERNAME, *data) {
+        Some(idname) => { *data = idname.0; window_name = idname.1;},
+        None => { *data = 0; return paint(MU_IND, BW_LIGHTGREY, "F") }
+    }
+    // Return if no music is playing
+    if &window_name == MU_PLAYERNAME {
+        return paint(MU_IND, BW_LIGHTGREY, "F")
+    }
+    // Get name parts
+    let name_parts: Vec<&str> = window_name.split(" - ").collect();
+
+    paint(MU_IND, BW_ORANGE, "F") + " " + name_parts[0] + " - " + name_parts[1]
+}
 //
 // Helper functions
 //
+
+// Helper function for tree travelsal to find a node with the given name
+fn get_node_from_name_or_id (node: Node, name: &str, id: u64) -> Option<(u64, String)>
+{
+    let node_name = match node.name {
+        Some(n) => n,
+        None => String::from("")
+    };
+
+    if node.id as u64 == id || node_name == name {
+        return Some((node.id as u64, node_name))
+    }
+
+    for n in node.nodes {
+        let res = get_node_from_name_or_id(n, name, id);
+        if res != None { return res; }
+    }
+
+    None
+}
 
 // Helper function for tree traversal to find workspaces
 fn get_workspaces_rec (data: &mut Vec<Node>, node: Node)
@@ -378,11 +406,12 @@ fn main ()
     let time       = Module { function: time,       data: 19 };
     let network    = Module { function: network,    data: 0 };
     let battery    = Module { function: battery,    data: 0 };
+    let music      = Module { function: music,      data: 0 };
 
     // Arrange modules
     let left   = vec![workspaces];
     let center = vec![time];
-    let right  = vec![network, battery];
+    let right  = vec![music, network, battery];
 
     // Arcs used to share module data across threads
     let l1 = Arc::new(Mutex::new(left));
