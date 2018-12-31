@@ -28,7 +28,13 @@ use std::time;
 /*         Minimalistic design         */
 /*                                     */
 
+
+/*               */
+/* Configuration */
+/*               */
+
 // Some colors from badwolf
+const BW_GREY: &str        = "#35322d";
 const BW_LIGHTGREY: &str   = "#45413b";
 const BW_LIGHTERGREY: &str = "#857f78";
 const BW_RED: &str         = "#ff2c4b";
@@ -69,7 +75,6 @@ const DISCORD: &str = "";
 const CODE: &str    = "";
 const TERM: &str    = "";
 const UNDEF: &str   = "";
-const EMPTY: &str   = " ";
 
 // Window names (name, icon, starts_with)
 //
@@ -85,9 +90,13 @@ const W_NAMES: [(&str, &str, bool); 4] = [
     ("Firefox", FIREFOX, false),
 ];
 
-//
-// Modules
-//
+// Change this to false if your workspace names are not numbered 1..10
+const WS_NUMBERS: bool = true;
+
+
+/*         */
+/* Modules */
+/*         */
 
 // TODO: UTF time support
 // Module to get a string representing the time
@@ -136,17 +145,17 @@ fn battery (_data: &mut u64) -> String
 // Module for getting the workspaces
 fn workspaces (data: &mut u64) -> String
 {
-    // The string to return
-    let mut res = String::from("");
+    // Vector of strings to display
+    let mut space_strings = Vec::with_capacity(10);
     // The connection to i3. Used to get data
     let mut i3 = I3Connection::connect().unwrap();
     // Vector of workspaces
-    let mut spaces = Vec::new();
+    let mut spaces = Vec::with_capacity(11);
     // Find all workspaces
     get_workspaces_rec(&mut spaces, i3.get_tree().unwrap());
 
-    /* Cool idea: show 'gaps' with grey numbers */
-
+    // The current workspace
+    let mut current_ws = 1;
     // Flag for if we find a music player window
     let mut music_found = false;
     // Create string from workspaces
@@ -156,11 +165,13 @@ fn workspaces (data: &mut u64) -> String
         if space.rect.2 == 0 { continue; }
 
         let mut symbol_index: usize = 0;
-        let mut space_string = String::from(EMPTY);
+
+        let space_name = space.name.clone().unwrap();
+        let mut space_string = paint(&space_name, BW_LIGHTERGREY, "F");
 
         let mut focused = space.focused;
 
-        let mut nodes = Vec::new();
+        let mut nodes = Vec::with_capacity(5);
         get_nodes_rec(&mut nodes, space);
 
         for node in nodes {
@@ -211,14 +222,31 @@ fn workspaces (data: &mut u64) -> String
         space_string = String::from(" ") + &space_string + " ";
 
         if focused {
-           space_string = paint(&space_string, BW_LIGHTGREY, "B");
+           space_string = paint(&space_string, BW_GREY, "B");
         } 
 
-        res += &space_string;
+        // Show workspaces wedged between other workspaces
+        if WS_NUMBERS {
+            let n = space_name.parse().unwrap();
+            if n > current_ws {
+                for i in current_ws..n {
+                    let name = &paint(&i.to_string(), BW_LIGHTGREY, "F");
+                    space_strings.push(String::from(" ") + name + " ");
+                }
+                current_ws = n;
+            }
+            current_ws += 1;
+        }
+
+        space_strings.push(space_string);
     }
 
     // Reset data if there is no music player running
     if !music_found { *data = 0; }
+
+    let mut res = String::with_capacity(50);
+
+    for s in space_strings { res += &s; }
 
     res
 }
@@ -273,11 +301,13 @@ fn music (data: &mut u64) -> String
 
     paint(MU_IND, BW_ORANGE, "F") + " " + name_parts[0] + " - " + name_parts[1]
 }
-//
-// Helper functions
-//
 
-// Helper function for tree travelsal to find a node with the given name
+
+/*                  */
+/* Helper Functions */
+/*                  */
+
+// Helper function for tree traversal to find a node with the given name
 fn get_node_from_name_or_id (node: Node, name: &str, id: u64) -> Option<(u64, String)>
 {
     let node_name = match node.name {
@@ -373,9 +403,10 @@ fn join_module (m: &mut Vec<Module>, sep: &str) -> String
     }
 }
 
-//
-// Program functions
-//
+
+/*                   */
+/* Program Functions */
+/*                   */
 
 // Program function for printing the string to pipe to lemonbar
 fn output_data (
@@ -395,6 +426,12 @@ fn output_data (
     println!("{}{}{}{}{}", begin, l, c, r, end);
 }
 
+
+/*         */
+/* Structs */
+/*         */
+
+// Struct for handling modules
 struct Module 
 {
     function: fn(&mut u64) -> String,
@@ -408,6 +445,11 @@ impl Clone for Module
         Module { function: self.function.clone(), data: self.data }
     }
 }
+
+
+/*      */
+/* Main */
+/*      */
 
 // The main function. This is where the magic happens
 fn main ()
