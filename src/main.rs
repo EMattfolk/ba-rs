@@ -51,6 +51,7 @@ const ETH_IND: &str        = "";
 // Battery
 const BAT_PATH: &str       = "/sys/class/power_supply/BAT0/";
 const BAT_IND: &str        = "";
+const BAT_CHARGING: &str   = "";
 
 // Battery colors
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
@@ -106,16 +107,26 @@ fn time (data: &mut u64) -> String
 fn battery (_data: &mut u64) -> String
 {
     let capacity_path = String::from(BAT_PATH) + "capacity";
+    let status_path   = String::from(BAT_PATH) + "status";
 
-    let mut f = File::open(capacity_path).expect("Battery not found");
+    // Read capacity
+    let mut f = File::open(capacity_path).unwrap();
     let mut cap = String::new();
-    f.read_to_string(&mut cap).expect("Error reading file");
+    f.read_to_string(&mut cap).unwrap();
 
     let cap: u32 = cap.trim().parse().unwrap();
 
+    // Read status
+    let mut f = File::open(status_path).unwrap();
+    let mut stat = String::new();
+    f.read_to_string(&mut stat).unwrap();
+
+    let icon = if stat.trim() == "Discharging" { BAT_IND } else { BAT_CHARGING };
+
+    // Assign color depending on capacity
     for t in (0..BAT_THRESHOLDS.len()).rev() {
         if cap >= BAT_THRESHOLDS[t] {
-            return paint(BAT_IND, BAT_COLORS[t], "F");
+            return paint(icon, BAT_COLORS[t], "F");
         }
     }
 
