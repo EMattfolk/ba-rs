@@ -7,6 +7,7 @@ use i3ipc::reply::NodeType;
 
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
+use std::process::Command;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -98,15 +99,13 @@ const WS_NUMBERS: bool = true;
 /* Modules */
 /*         */
 
-// TODO: UTF time support
 // Module to get a string representing the time
 fn time (data: &mut u64) -> String
 {
-    // TODO: A working time system
     let now = SystemTime::now();
-    let duration = now.duration_since(SystemTime::UNIX_EPOCH).expect("Error");
-    let secs = duration.as_secs() % (24 * 3600);
-    let hour = (secs / 3600 + *data) % 24;
+    let duration = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+    let secs = (duration.as_secs() + *data) % (24 * 3600);
+    let hour = (secs / 3600) % 24;
     let minute = (secs % 3600) / 60;
 
     time_string(hour) + &paint(":", BW_LIGHTERGREY, "F") + &time_string(minute)
@@ -244,7 +243,7 @@ fn workspaces (data: &mut u64) -> String
     // Reset data if there is no music player running
     if !music_found { *data = 0; }
 
-    let mut res = String::with_capacity(50);
+    let mut res = String::with_capacity(200);
 
     for s in space_strings { res += &s; }
 
@@ -403,6 +402,35 @@ fn join_module (m: &mut Vec<Module>, sep: &str) -> String
     }
 }
 
+// Helper function for getting time zone offset in seconds
+fn get_tz_offset_in_seconds () -> u64
+{
+    // Get current time zone
+    let tz = String::from_utf8(
+        Command::new("date")
+        .arg("+%z")
+        .output()
+        .expect("Error getting time zone")
+        .stdout).unwrap();
+
+    // Convert time zone to seconds
+    let mut chars = tz.chars();
+    let sign = chars.next().unwrap();
+    let h1 = chars.next().unwrap().to_digit(10).unwrap();
+    let h2 = chars.next().unwrap().to_digit(10).unwrap();
+    let m1 = chars.next().unwrap().to_digit(10).unwrap();
+    let m2 = chars.next().unwrap().to_digit(10).unwrap();
+
+    let offset = 
+        if sign == '-' {
+            3600 * (24 - h1 * 10 - h2) - 60 * (m1 * 10 + m2)
+        }
+        else {
+            3600 * (h1 * 10 + h2) + 60 * (m1 * 10 + m2)
+        };
+
+    offset as u64
+}
 
 /*                   */
 /* Program Functions */
@@ -454,9 +482,12 @@ impl Clone for Module
 // The main function. This is where the magic happens
 fn main ()
 {
+    // Get timzone offset
+    let o = get_tz_offset_in_seconds();
+
     // Initialize modules
     let workspaces = Module { function: workspaces, data: 0 };
-    let time       = Module { function: time,       data: 19 };
+    let time       = Module { function: time,       data: o };
     let network    = Module { function: network,    data: 0 };
     let battery    = Module { function: battery,    data: 0 };
     let music      = Module { function: music,      data: 0 };
