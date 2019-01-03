@@ -184,7 +184,8 @@ fn workspaces (data: &mut u64) -> String
                         space_string = String::from(MU_PLAYERICO);
                         *data = node.id as u64;
                         music_found = true;
-                        break;
+                        symbol_index = W_NAMES.len();
+                        continue;
                     }
                     else {
                         n
