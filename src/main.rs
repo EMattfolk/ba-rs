@@ -35,6 +35,8 @@ use std::time;
 /*               */
 
 // Some colors from badwolf
+const BW_WHITE: &str       = "#f8f6f2";
+const BW_DARK: &str        = "#121212";
 const BW_GREY: &str        = "#35322d";
 const BW_LIGHTGREY: &str   = "#45413b";
 const BW_LIGHTERGREY: &str = "#857f78";
@@ -43,39 +45,42 @@ const BW_GREEN: &str       = "#aeee00";
 const BW_LIGHTBROWN: &str  = "#f4cf86";
 const BW_ORANGE: &str      = "#ffa724";
 
-// Default colors
-const BW_BACKGROUND: &str  = "#121212";
-const BW_WHITE: &str       = "#f8f6f2";
+// Default colors (these are also defined in the start script)
+const BACKGROUND: &str     = BW_DARK;
+const TEXT_COLOR: &str     = BW_WHITE;
 
-// Wireless
+// Network
 const WL_PATH: &str        = "/sys/class/net/wlp3s0/";
 const WL_IND: &str         = "";
-
-// Ethernet
 const ETH_PATH: &str       = "/sys/class/net/enp2s0/";
 const ETH_IND: &str        = "";
+const NET_UP_COLOR: &str   = BW_GREEN;
+const NET_DOWN_COLOR: &str = BW_RED;
 
 // Battery
 const BAT_PATH: &str       = "/sys/class/power_supply/BAT0/";
 const BAT_IND: &str        = "";
 const BAT_CHARGING: &str   = "";
-
-// Battery colors
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
-const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, BW_WHITE, BW_GREEN];
+const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, TEXT_COLOR, BW_GREEN];
 
 // Music
-const MU_PLAYERNAME: &str = "Spotify";
-const MU_PLAYERICO: &str  = "";
-const MU_IND: &str        = "";
+const MU_PLAYERNAME: &str  = "Spotify";
+const MU_PLAYERICO: &str   = "";
+const MU_IND: &str         = "";
+const MU_IDLE_COLOR: &str  = BW_LIGHTGREY;
+const MU_PLAY_COLOR: &str  = BW_ORANGE;
+
+// Time
+const TI_COLON_COLOR: &str = BW_LIGHTERGREY;
 
 // Some icons for programs, in order of priority
-const FIREFOX: &str = "";
-const STEAM: &str   = "";
-const DISCORD: &str = "";
-const CODE: &str    = "";
-const TERM: &str    = "";
-const UNDEF: &str   = "";
+const FIREFOX: &str        = "";
+const STEAM: &str          = "";
+const DISCORD: &str        = "";
+const CODE: &str           = "";
+const TERM: &str           = "";
+const UNDEF: &str          = "";
 
 // Window names (name, icon, starts_with)
 //
@@ -108,7 +113,7 @@ fn time (data: &mut u64) -> String
     let hour = (secs / 3600) % 24;
     let minute = (secs % 3600) / 60;
 
-    time_string(hour) + &paint(":", BW_LIGHTERGREY, "F") + &time_string(minute)
+    time_string(hour) + &paint(":", TI_COLON_COLOR, "F") + &time_string(minute)
 }
 
 // Module for getting the battery indcator
@@ -262,7 +267,7 @@ fn network (_data: &mut u64) -> String
     file.read_to_string(&mut status).expect("Unable to read file");
 
     if status.trim() == "up" {
-        return paint(WL_IND, BW_GREEN, "F");
+        return paint(WL_IND, NET_UP_COLOR, "F");
     }
 
     // Read the operstate file to see if the ethernet is up
@@ -273,10 +278,10 @@ fn network (_data: &mut u64) -> String
     file.read_to_string(&mut status).expect("Unable to read file");
 
     if status.trim() == "up" {
-        paint(ETH_IND, BW_GREEN, "F")
+        paint(ETH_IND, NET_UP_COLOR, "F")
     }
     else {
-        paint(WL_IND, BW_RED, "F")
+        paint(WL_IND, NET_DOWN_COLOR, "F")
     }
 }
 
@@ -294,12 +299,12 @@ fn music (data: &mut u64) -> String
     }
     // Return if no music is playing
     if &window_name == MU_PLAYERNAME {
-        return paint(MU_IND, BW_LIGHTGREY, "F")
+        return paint(MU_IND, MU_IDLE_COLOR, "F")
     }
     // Get name parts
     let name_parts: Vec<&str> = window_name.split(" - ").collect();
 
-    paint(MU_IND, BW_ORANGE, "F") + " " + name_parts[0] + " - " + name_parts[1]
+    paint(MU_IND, MU_PLAY_COLOR, "F") + " " + name_parts[0] + " - " + name_parts[1]
 }
 
 
@@ -365,12 +370,12 @@ fn paint (string: &str, color: &str, to_paint: &str) -> String
     let mut painted = String::from(string);
 
     let default_color = 
-        if to_paint == "F" { BW_WHITE }
+        if to_paint == "F" { TEXT_COLOR }
         else {
             if to_paint == "U" {
                 painted = String::from("%{+u}") + &painted + "&{-u}"; 
             }
-            BW_BACKGROUND
+            BACKGROUND
         };
 
     String::from("%{")+to_paint+color+"}"+&painted+"%{"+to_paint+default_color+"}"
