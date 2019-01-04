@@ -14,7 +14,7 @@ Before installing, take a look at the __*configuration*__ section.
 git clone https://github.com/EMattfolk/Bardata
 cd Bardata
 cargo build --release
-cp /target/release/bardata ~/.local/bin/
+cp target/release/bardata ~/.local/bin/
 cp startbar ~/.local/bin/
 ```
 
@@ -25,8 +25,8 @@ To configure your bar, open __main.rs__ with your favorite text editor and make 
 When you done, go ahead and install.
 
 ### Dependencies
-- Rust
-- Lemonbar
+- rust
+- lemonbar-xft
 - i3wm
 - FontAwesome (optional, but recommended)
 
