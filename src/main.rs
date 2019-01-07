@@ -37,9 +37,8 @@ use std::time;
 // Some colors from badwolf
 const BW_WHITE: &str       = "#f8f6f2";
 const BW_DARK: &str        = "#121212";
-const BW_GREY: &str        = "#35322d";
-const BW_LIGHTGREY: &str   = "#45413b";
-const BW_LIGHTERGREY: &str = "#857f78";
+const BW_GREY: &str        = "#45413b";
+const BW_LIGHTGREY: &str   = "#857f78";
 const BW_RED: &str         = "#ff2c4b";
 const BW_GREEN: &str       = "#aeee00";
 const BW_LIGHTBROWN: &str  = "#f4cf86";
@@ -68,11 +67,15 @@ const BAT_COLORS: [&str; 5]    = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, TEXT_COLOR, 
 const MU_PLAYERNAME: &str  = "Spotify";
 const MU_PLAYERICO: &str   = "";
 const MU_IND: &str         = "";
-const MU_IDLE_COLOR: &str  = BW_LIGHTGREY;
+const MU_IDLE_COLOR: &str  = BW_GREY;
 const MU_PLAY_COLOR: &str  = BW_ORANGE;
 
 // Time
-const TI_COLON_COLOR: &str = BW_LIGHTERGREY;
+const TI_COLON_COLOR: &str = BW_LIGHTGREY;
+
+// Workspace
+const WS_CURRENT: &str     = BW_GREY;
+const WS_NUM_COLOR: &str   = BW_LIGHTGREY;
 
 // Some icons for programs, in order of priority
 const FIREFOX: &str        = "";
@@ -183,7 +186,7 @@ fn workspaces (data: &mut u64) -> String
         if space.rect.2 == 0 { continue; }
 
         let space_name = space.name.clone().unwrap();
-        let mut space_string = paint(&space_name, BW_LIGHTERGREY, "F");
+        let mut space_string = space_name.clone();
 
         let mut focused = space.focused;
 
@@ -241,7 +244,7 @@ fn workspaces (data: &mut u64) -> String
         space_string = String::from(" ") + &space_string + " ";
 
         if focused {
-           space_string = paint(&space_string, BW_GREY, "B");
+           space_string = paint(&space_string, WS_CURRENT, "B");
         } 
 
         // Show workspaces wedged between other workspaces
@@ -249,7 +252,7 @@ fn workspaces (data: &mut u64) -> String
             let n = space_name.parse().unwrap();
             if n > current_ws {
                 for i in current_ws..n {
-                    let name = &paint(&i.to_string(), BW_LIGHTGREY, "F");
+                    let name = &paint(&i.to_string(), WS_NUM_COLOR, "F");
                     space_strings.push(String::from(" ") + name + " ");
                 }
                 current_ws = n;
@@ -307,7 +310,7 @@ fn music (data: &mut u64) -> String
     // Get window name and set data to the id of the window
     match get_node_from_name_or_id(i3.get_tree().unwrap(), MU_PLAYERNAME, *data) {
         Some(idname) => { *data = idname.0; window_name = idname.1;},
-        None => { *data = 0; return paint(MU_IND, BW_LIGHTGREY, "F") }
+        None => { *data = 0; return paint(MU_IND, MU_IDLE_COLOR, "F") }
     }
     // Return if no music is playing
     if &window_name == MU_PLAYERNAME {
