@@ -87,8 +87,8 @@ const UNDEF: &str          = "";
 // name: The name of the program (case sensitive)
 // icon: The icon to indicate the program is running
 // starts_with: Boolean representing if the name appears at the begining of the title
-//     True  => title starts with the name
-//     False => title ends with the name
+//     True  -> title starts with the name
+//     False -> title ends with the name
 const W_NAMES: [(&str, &str, bool); 4] = [
     ("nvim",    CODE,    true),
     ("Discord", DISCORD, false),
@@ -101,10 +101,29 @@ const WS_NUMBERS: bool = true;
 
 
 /*         */
+/* Structs */
+/*         */
+
+struct Module 
+{
+    function: fn(&mut u64) -> String,
+    data: u64
+}
+
+impl Clone for Module
+{
+    fn clone(&self) -> Module
+    {
+        Module { function: self.function.clone(), data: self.data }
+    }
+}
+
+
+/*         */
 /* Modules */
 /*         */
 
-// Module to get a string representing the time
+// Module function to get a string representing the time
 fn time (data: &mut u64) -> String
 {
     let now = SystemTime::now();
@@ -116,7 +135,7 @@ fn time (data: &mut u64) -> String
     time_string(hour) + &paint(":", TI_COLON_COLOR, "F") + &time_string(minute)
 }
 
-// Module for getting the battery indcator
+// Module function for getting the battery indcator
 fn battery (_data: &mut u64) -> String
 {
     let capacity_path = String::from(BAT_PATH) + "capacity";
@@ -146,29 +165,22 @@ fn battery (_data: &mut u64) -> String
     String::from("I you see this something went very wrong")
 }
 
-// Module for getting the workspaces
+// Module function for getting the workspaces
 fn workspaces (data: &mut u64) -> String
 {
-    // Vector of strings to display
-    let mut space_strings = Vec::with_capacity(10);
-    // The connection to i3. Used to get data
     let mut i3 = I3Connection::connect().unwrap();
-    // Vector of workspaces
+    let mut space_strings = Vec::with_capacity(10);
     let mut spaces = Vec::with_capacity(11);
-    // Find all workspaces
-    get_workspaces_rec(&mut spaces, i3.get_tree().unwrap());
 
-    // The current workspace
+    get_workspaces(&mut spaces, i3.get_tree().unwrap());
+
     let mut current_ws = 1;
-    // Flag for if we find a music player window
     let mut music_found = false;
-    // Create string from workspaces
+
     for space in spaces {
 
         // Dont include workspaces with zero width
         if space.rect.2 == 0 { continue; }
-
-        let mut symbol_index: usize = 0;
 
         let space_name = space.name.clone().unwrap();
         let mut space_string = paint(&space_name, BW_LIGHTERGREY, "F");
@@ -176,7 +188,9 @@ fn workspaces (data: &mut u64) -> String
         let mut focused = space.focused;
 
         let mut nodes = Vec::with_capacity(5);
-        get_nodes_rec(&mut nodes, space);
+        get_nodes(&mut nodes, space);
+
+        let mut symbol_index: usize = 0;
 
         for node in nodes {
 
@@ -246,7 +260,6 @@ fn workspaces (data: &mut u64) -> String
         space_strings.push(space_string);
     }
 
-    // Reset data if there is no music player running
     if !music_found { *data = 0; }
 
     let mut res = String::with_capacity(200);
@@ -256,7 +269,7 @@ fn workspaces (data: &mut u64) -> String
     res
 }
 
-// Module for getting network status
+// Module function for getting network status
 fn network (_data: &mut u64) -> String
 {
     // Read the operstate file to see if the wireless is up
@@ -264,7 +277,7 @@ fn network (_data: &mut u64) -> String
     let mut file = File::open(status_path).unwrap();
     let mut status = String::from("");
 
-    file.read_to_string(&mut status).expect("Unable to read file");
+    file.read_to_string(&mut status).unwrap();
 
     if status.trim() == "up" {
         return paint(WL_IND, NET_UP_COLOR, "F");
@@ -275,7 +288,7 @@ fn network (_data: &mut u64) -> String
     let mut file = File::open(status_path).unwrap();
     let mut status = String::from("");
 
-    file.read_to_string(&mut status).expect("Unable to read file");
+    file.read_to_string(&mut status).unwrap();
 
     if status.trim() == "up" {
         paint(ETH_IND, NET_UP_COLOR, "F")
@@ -285,14 +298,13 @@ fn network (_data: &mut u64) -> String
     }
 }
 
-// Module for getting music info
+// Module function for getting music info
 fn music (data: &mut u64) -> String
 {
-    // The connection to i3. Used to get data
     let mut i3 = I3Connection::connect().unwrap();
-    // The window name
     let window_name: String;
-    // Get music window if it exists
+
+    // Get window name and set data to the id of the window
     match get_node_from_name_or_id(i3.get_tree().unwrap(), MU_PLAYERNAME, *data) {
         Some(idname) => { *data = idname.0; window_name = idname.1;},
         None => { *data = 0; return paint(MU_IND, BW_LIGHTGREY, "F") }
@@ -301,8 +313,10 @@ fn music (data: &mut u64) -> String
     if &window_name == MU_PLAYERNAME {
         return paint(MU_IND, MU_IDLE_COLOR, "F")
     }
-    // Get name parts
+
     let name_parts: Vec<&str> = window_name.split(" - ").collect();
+
+    assert!(name_parts.len() > 1, "Invalid song format");
 
     paint(MU_IND, MU_PLAY_COLOR, "F") + " " + name_parts[0] + " - " + name_parts[1]
 }
@@ -333,20 +347,20 @@ fn get_node_from_name_or_id (node: Node, name: &str, id: u64) -> Option<(u64, St
 }
 
 // Helper function for tree traversal to find workspaces
-fn get_workspaces_rec (data: &mut Vec<Node>, node: Node)
+fn get_workspaces (data: &mut Vec<Node>, node: Node)
 {
     if node.nodetype == NodeType::Workspace {
         data.push(node);
     }
     else {
         for n in node.nodes {
-            get_workspaces_rec(data, n);
+            get_workspaces(data, n);
         }
     }
 }
 
 // Helper function for tree traversal to find nodes
-fn get_nodes_rec (data: &mut Vec<Node>, node: Node)
+fn get_nodes (data: &mut Vec<Node>, node: Node)
 {
     if node.nodes.len() == 0 &&
        node.floating_nodes.len() == 0 &&
@@ -356,10 +370,10 @@ fn get_nodes_rec (data: &mut Vec<Node>, node: Node)
     }
     else {
         for n in node.nodes {
-            get_nodes_rec(data, n);
+            get_nodes(data, n);
         }
         for n in node.floating_nodes {
-            get_nodes_rec(data, n);
+            get_nodes(data, n);
         }
     }
 }
@@ -458,26 +472,6 @@ fn output_data (
     let r = String::from("%{r}") + &join_module(right, separator);
 
     println!("{}{}{}{}{}", begin, l, c, r, end);
-}
-
-
-/*         */
-/* Structs */
-/*         */
-
-// Struct for handling modules
-struct Module 
-{
-    function: fn(&mut u64) -> String,
-    data: u64
-}
-
-impl Clone for Module
-{
-    fn clone(&self) -> Module
-    {
-        Module { function: self.function.clone(), data: self.data }
-    }
 }
 
 
