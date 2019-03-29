@@ -10,7 +10,6 @@ use std::time::SystemTime;
 use std::process::Command;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
 use std::thread;
 use std::time;
 
@@ -92,11 +91,14 @@ const UNDEF: &str          = "";
 // starts_with: Boolean representing if the name appears at the begining of the title
 //     True  -> title starts with the name
 //     False -> title ends with the name
-const W_NAMES: [(&str, &str, bool); 4] = [
-    ("nvim",    CODE,    true),
-    ("Discord", DISCORD, false),
-    ("Steam",   STEAM,   true),
-    ("Firefox", FIREFOX, false),
+const W_NAMES: [(&str, &str, bool); 7] = [
+    ("",            UNDEF,        true),
+    ("st",          TERM,         true),
+    ("nvim",        CODE,         true),
+    ("Discord",     DISCORD,      false),
+    ("Steam",       STEAM,        true),
+    ("Firefox",     FIREFOX,      false),
+    (MU_PLAYERNAME, MU_PLAYERICO, true)
 ];
 
 // Change this to false if your workspace names are not numbered 1..10
@@ -107,7 +109,7 @@ const WS_NUMBERS: bool = true;
 /* Structs */
 /*         */
 
-struct Module 
+struct Module
 {
     function: fn(&mut u64) -> String,
     data: u64
@@ -165,7 +167,7 @@ fn battery (_data: &mut u64) -> String
         }
     }
 
-    String::from("I you see this something went very wrong")
+    String::from("If you see this something went very wrong")
 }
 
 // Module function for getting the workspaces
@@ -199,21 +201,17 @@ fn workspaces (data: &mut u64) -> String
 
             focused |= node.focused;
 
-            // Get node_name and give the music player highest priority
+            // Get node name
             let node_name = match node.name {
-                Some(n) => 
+                Some(n) =>
                     if &n == MU_PLAYERNAME || *data == node.id as u64 {
-                        space_string = String::from(MU_PLAYERICO);
                         *data = node.id as u64;
                         music_found = true;
-                        symbol_index = W_NAMES.len();
-                        continue;
-                    }
-                    else {
+                        String::from(MU_PLAYERNAME)
+                    } else {
                         n
                     },
-                None =>
-                    String::from("")
+                None => String::from("")
             };
 
             // Match the window to the correct name in order of priority
@@ -230,22 +228,13 @@ fn workspaces (data: &mut u64) -> String
                     symbol_index = i + 1;
                 }
             }
-
-            // If we don't have an icon for the window
-            if symbol_index == 0 && &space_string != TERM {
-                space_string = String::from(UNDEF);
-                let name_parts: Vec<&str> = node_name.split(" ").collect();
-                if name_parts.len() > 1 && Path::new(name_parts[1]).exists() {
-                    space_string = String::from(TERM);
-                }
-            }
         }
 
         space_string = String::from(" ") + &space_string + " ";
 
         if focused {
            space_string = paint(&space_string, WS_CURRENT, "B");
-        } 
+        }
 
         // Show workspaces wedged between other workspaces
         if WS_NUMBERS {
@@ -386,11 +375,11 @@ fn paint (string: &str, color: &str, to_paint: &str) -> String
 {
     let mut painted = String::from(string);
 
-    let default_color = 
+    let default_color =
         if to_paint == "F" { TEXT_COLOR }
         else {
             if to_paint == "U" {
-                painted = String::from("%{+u}") + &painted + "&{-u}"; 
+                painted = String::from("%{+u}") + &painted + "&{-u}";
             }
             BACKGROUND
         };
@@ -444,7 +433,7 @@ fn get_tz_offset_in_seconds () -> u64
     let m1 = chars.next().unwrap().to_digit(10).unwrap();
     let m2 = chars.next().unwrap().to_digit(10).unwrap();
 
-    let offset = 
+    let offset =
         if sign == '-' {
             3600 * (24 - h1 * 10 - h2) - 60 * (m1 * 10 + m2)
         }
@@ -486,11 +475,11 @@ fn output_data (
 fn main ()
 {
     // Get timzone offset
-    let o = get_tz_offset_in_seconds();
+    let t = get_tz_offset_in_seconds();
 
     // Initialize modules
     let workspaces = Module { function: workspaces, data: 0 };
-    let time       = Module { function: time,       data: o };
+    let time       = Module { function: time,       data: t };
     let network    = Module { function: network,    data: 0 };
     let battery    = Module { function: battery,    data: 0 };
     let music      = Module { function: music,      data: 0 };
