@@ -9,9 +9,10 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use std::process::Command;
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{self, Read};
 use std::thread;
 use std::time;
+use std::env::args;
 
 /*                                     */
 /*             Created by              */
@@ -184,7 +185,7 @@ fn workspaces (data: &mut u64) -> String
 
     for space in spaces {
 
-        // Dont include workspaces with zero width
+        // Don't include workspaces with zero width
         if space.rect.2 == 0 { continue; }
 
         let space_name = space.name.clone().unwrap();
@@ -230,19 +231,29 @@ fn workspaces (data: &mut u64) -> String
             }
         }
 
+        // Pad the icon with spaces
         space_string = String::from(" ") + &space_string + " ";
+
+        // Create a button for easier navigation
+        space_string = buttonize(&space_string,
+                                 &(String::from("workspace ") + &space_name));
 
         if focused {
            space_string = paint(&space_string, WS_CURRENT, "B");
         }
 
-        // Show workspaces wedged between other workspaces
+        // Show unused workspaces wedged between used workspaces
         if WS_NUMBERS {
-            let n = space_name.parse().unwrap();
+            let n = space_name.parse()
+                .expect("Workspace name is not a number. Please set WS_NUMBERS to\
+                false or change the name of your workspaces.");
             if n > current_ws {
                 for i in current_ws..n {
-                    let name = &paint(&i.to_string(), WS_NUM_COLOR, "F");
-                    space_strings.push(String::from(" ") + name + " ");
+                    let mut name = String::from(" ") + &i.to_string() + " ";
+                    name = paint(&name, WS_NUM_COLOR, "F");
+                    name = buttonize(&name,
+                                     &(String::from("workspace ") + &i.to_string()));
+                    space_strings.push(name);
                 }
                 current_ws = n;
             }
@@ -371,7 +382,7 @@ fn get_nodes (data: &mut Vec<Node>, node: Node)
 }
 
 // Helper function for painting a string a certain color (not literally)
-fn paint (string: &str, color: &str, to_paint: &str) -> String
+fn paint(string: &str, color: &str, to_paint: &str) -> String
 {
     let mut painted = String::from(string);
 
@@ -387,8 +398,14 @@ fn paint (string: &str, color: &str, to_paint: &str) -> String
     String::from("%{")+to_paint+color+"}"+&painted+"%{"+to_paint+default_color+"}"
 }
 
-// Helper fuction for getting properly formatted time
-fn time_string (time: u64) -> String
+// Helper function for making buttons
+fn buttonize(string: &str, command: &str) -> String
+{
+    String::from("%{A:") + &command + ":}" + &string + "%{A}"
+}
+
+// Helper function for getting properly formatted time
+fn time_string(time: u64) -> String
 {
     if time < 10 {
         String::from("0") + &time.to_string()
@@ -466,6 +483,18 @@ fn output_data (
     println!("{}{}{}{}{}", begin, l, c, r, end);
 }
 
+// Program function for sending lemonbar output as commands to i3
+fn send_messages() {
+    let mut connection = I3Connection::connect()
+        .expect("Failed to connect to i3");
+
+    // Send messages to i3
+    loop {
+        let mut buffer = String::new();
+        io::stdin().read_line(&mut buffer).expect("Failed to read line");
+        connection.run_command(&buffer).expect("I3 command failed");
+    }
+}
 
 /*      */
 /* Main */
@@ -474,6 +503,13 @@ fn output_data (
 // The main function. This is where the magic happens
 fn main ()
 {
+    // Get arguments
+    let argv: Vec<String> = args().collect();
+
+    if argv.contains(&String::from("--send")) {
+        send_messages();
+    }
+
     // Get timzone offset
     let t = get_tz_offset_in_seconds();
 
