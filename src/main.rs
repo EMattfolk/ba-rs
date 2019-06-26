@@ -137,8 +137,9 @@ fn time (data: &mut u64) -> String
     let secs = (duration.as_secs() + *data) % (24 * 3600);
     let hour = (secs / 3600) % 24;
     let minute = (secs % 3600) / 60;
+    let colon = paint(":", TI_COLON_COLOR, "F");
 
-    time_string(hour) + &paint(":", TI_COLON_COLOR, "F") + &time_string(minute)
+    format!("{:02}{}{:02}", hour, colon, minute)
 }
 
 // Module function for getting the battery indcator
@@ -168,7 +169,7 @@ fn battery (_data: &mut u64) -> String
         }
     }
 
-    String::from("If you see this something went very wrong")
+    String::from("If you see this, something went very wrong...")
 }
 
 // Module function for getting the workspaces
@@ -212,7 +213,7 @@ fn workspaces (data: &mut u64) -> String
                     } else {
                         n
                     },
-                None => String::from("")
+                None => String::new()
             };
 
             // Match the window to the correct name in order of priority
@@ -232,11 +233,10 @@ fn workspaces (data: &mut u64) -> String
         }
 
         // Pad the icon with spaces
-        space_string = String::from(" ") + &space_string + " ";
+        space_string = format!(" {} ", space_string);
 
         // Create a button for easier navigation
-        space_string = buttonize(&space_string,
-                                 &(String::from("workspace ") + &space_name));
+        space_string = buttonize(&space_string, &format!("workspace {}", space_name));
 
         if focused {
            space_string = paint(&space_string, WS_CURRENT, "B");
@@ -249,10 +249,9 @@ fn workspaces (data: &mut u64) -> String
                 false or change the name of your workspaces.");
             if n > current_ws {
                 for i in current_ws..n {
-                    let mut name = String::from(" ") + &i.to_string() + " ";
+                    let mut name = format!(" {} ", i);
                     name = paint(&name, WS_NUM_COLOR, "F");
-                    name = buttonize(&name,
-                                     &(String::from("workspace ") + &i.to_string()));
+                    name = buttonize(&name, &format!("workspace {}", i));
                     space_strings.push(name);
                 }
                 current_ws = n;
@@ -265,11 +264,7 @@ fn workspaces (data: &mut u64) -> String
 
     if !music_found { *data = 0; }
 
-    let mut res = String::with_capacity(200);
-
-    for s in space_strings { res += &s; }
-
-    res
+    space_strings.concat()
 }
 
 // Module function for getting network status
@@ -278,7 +273,7 @@ fn network (_data: &mut u64) -> String
     // Read the operstate file to see if the wireless is up
     let status_path = String::from(WL_PATH) + "operstate";
     let mut file = File::open(status_path).unwrap();
-    let mut status = String::from("");
+    let mut status = String::new();
 
     file.read_to_string(&mut status).unwrap();
 
@@ -334,7 +329,7 @@ fn get_node_from_name_or_id (node: Node, name: &str, id: u64) -> Option<(u64, St
 {
     let node_name = match node.name {
         Some(n) => n,
-        None => String::from("")
+        None => String::new()
     };
 
     if node.id as u64 == id || node_name == name {
@@ -382,53 +377,41 @@ fn get_nodes (data: &mut Vec<Node>, node: Node)
 }
 
 // Helper function for painting a string a certain color (not literally)
-fn paint(string: &str, color: &str, to_paint: &str) -> String
+fn paint(string: &str, color: &str, layer: &str) -> String
 {
-    let mut painted = String::from(string);
+    let mut to_paint = String::from(string);
 
     let default_color =
-        if to_paint == "F" { TEXT_COLOR }
+        if layer == "F" { TEXT_COLOR }
         else {
-            if to_paint == "U" {
-                painted = String::from("%{+u}") + &painted + "&{-u}";
+            if layer == "U" {
+                to_paint = format!("%{{+u}}{}%{{-u}}", to_paint);
             }
             BACKGROUND
         };
 
-    String::from("%{")+to_paint+color+"}"+&painted+"%{"+to_paint+default_color+"}"
+    format!("%{{{2}{1}}}{0}%{{{2}{3}}}", to_paint, color, layer, default_color)
 }
 
 // Helper function for making buttons
 fn buttonize(string: &str, command: &str) -> String
 {
-    String::from("%{A:") + &command + ":}" + &string + "%{A}"
-}
-
-// Helper function for getting properly formatted time
-fn time_string(time: u64) -> String
-{
-    if time < 10 {
-        String::from("0") + &time.to_string()
-    }
-    else {
-        time.to_string()
-    }
-
+    format!("%{{A:{1}:}}{0}%{{A}}", string, command)
 }
 
 // Helper function for joining a vector of modules
-fn join_module (m: &mut Vec<Module>, sep: &str) -> String
+fn join_module (modules: &mut Vec<Module>, sep: &str) -> String
 {
-    if m.len() > 0 {
-        let mut s = (m[0].function)(&mut m[0].data);
-        for i in 1..m.len() {
-            s += sep;
-            s += &(m[i].function)(&mut m[0].data);
-        } s
+    let mut out = String::new();
+    if modules.len() > 0 {
+        out += &(modules[0].function)(&mut modules[0].data);
+        for i in 1..modules.len() {
+            out += sep;
+            out += &(modules[i].function)(&mut modules[i].data);
+        }
     }
-    else {
-        String::from("")
-    }
+
+    out
 }
 
 // Helper function for getting time zone offset in seconds
