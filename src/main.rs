@@ -116,6 +116,14 @@ struct Module
     data: u64
 }
 
+impl Module 
+{
+    fn create_string(&mut self) -> String
+    {
+        (self.function)(&mut self.data)
+    }
+}
+
 impl Clone for Module
 {
     fn clone(&self) -> Module
@@ -400,14 +408,14 @@ fn buttonize(string: &str, command: &str) -> String
 }
 
 // Helper function for joining a vector of modules
-fn join_module (modules: &mut Vec<Module>, sep: &str) -> String
+fn join_modules(modules: &mut Vec<Module>, sep: &str) -> String
 {
     let mut out = String::new();
     if modules.len() > 0 {
-        out += &(modules[0].function)(&mut modules[0].data);
+        out += &modules[0].create_string();
         for i in 1..modules.len() {
             out += sep;
-            out += &(modules[i].function)(&mut modules[i].data);
+            out += &modules[i].create_string();
         }
     }
 
@@ -449,21 +457,17 @@ fn get_tz_offset_in_seconds () -> u64
 /*                   */
 
 // Program function for printing the string to pipe to lemonbar
-fn output_data (
-    left:   &mut Vec<Module>,
-    center: &mut Vec<Module>,
-    right:  &mut Vec<Module>
-    )
+fn output_data(modules: &mut (Vec<Module>, Vec<Module>, Vec<Module>))
 {
     let begin     = "";
     let end       = " ";
     let separator = " ";
 
-    let l = String::from("%{l}") + &join_module(left, separator);
-    let c = String::from("%{c}") + &join_module(center, separator);
-    let r = String::from("%{r}") + &join_module(right, separator);
+    let left   = format!("%{{l}}{}", join_modules(&mut modules.0, separator));
+    let center = format!("%{{c}}{}", join_modules(&mut modules.1, separator));
+    let right  = format!("%{{r}}{}", join_modules(&mut modules.2, separator));
 
-    println!("{}{}{}{}{}", begin, l, c, r, end);
+    println!("{}{}{}{}{}", begin, left, center, right, end);
 }
 
 // Program function for sending lemonbar output as commands to i3
@@ -497,11 +501,11 @@ fn main ()
     let t = get_tz_offset_in_seconds();
 
     // Initialize modules
-    let workspaces = Module { function: workspaces, data: 0 };
-    let time       = Module { function: time,       data: t };
-    let network    = Module { function: network,    data: 0 };
-    let battery    = Module { function: battery,    data: 0 };
-    let music      = Module { function: music,      data: 0 };
+    let workspaces = Module{ function: workspaces, data: 0 };
+    let time       = Module{ function: time,       data: t };
+    let network    = Module{ function: network,    data: 0 };
+    let battery    = Module{ function: battery,    data: 0 };
+    let music      = Module{ function: music,      data: 0 };
 
     // Arrange modules
     let left   = vec![workspaces];
@@ -509,12 +513,8 @@ fn main ()
     let right  = vec![music, network, battery];
 
     // Arcs used to share module data across threads
-    let l1 = Arc::new(Mutex::new(left));
-    let c1 = Arc::new(Mutex::new(center));
-    let r1 = Arc::new(Mutex::new(right));
-    let l2 = l1.clone();
-    let c2 = c1.clone();
-    let r2 = r1.clone();
+    let modules1 = Arc::new(Mutex::new((left, center, right)));
+    let modules2 = modules1.clone();
 
     // Spawn a thread that updates bar every 2 seconds
     thread::spawn(move || {
@@ -523,13 +523,9 @@ fn main ()
 
         loop {
 
-            {
-                let mut l = l1.lock().unwrap();
-                let mut c = c1.lock().unwrap();
-                let mut r = r1.lock().unwrap();
-
-                output_data(&mut l, &mut c, &mut r);
-            }
+            let mut modules = modules1.lock().unwrap();
+            output_data(&mut modules);
+            drop(modules);
 
             thread::sleep(sleep_time);
         }
@@ -542,10 +538,8 @@ fn main ()
 
     for _event in listener.listen() {
 
-        let mut l = l2.lock().unwrap();
-        let mut c = c2.lock().unwrap();
-        let mut r = r2.lock().unwrap();
+        let mut modules = modules2.lock().unwrap();
 
-        output_data(&mut l, &mut c, &mut r);
+        output_data(&mut modules);
     }
 }
