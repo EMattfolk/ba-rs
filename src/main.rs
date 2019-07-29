@@ -116,7 +116,7 @@ struct Module
     data: u64
 }
 
-impl Module 
+impl Module
 {
     fn create_string(&mut self) -> String
     {
@@ -157,14 +157,16 @@ fn battery (_data: &mut u64) -> String
     let status_path   = String::from(BAT_PATH) + "status";
 
     // Read capacity
-    let mut f = File::open(capacity_path).unwrap();
+    let mut f = File::open(capacity_path)
+        .expect("Unable to open battery capacity: Invalid path");
     let mut cap = String::new();
     f.read_to_string(&mut cap).unwrap();
 
     let cap: u32 = cap.trim().parse().unwrap();
 
     // Read status
-    let mut f = File::open(status_path).unwrap();
+    let mut f = File::open(status_path)
+        .expect("Unable to open battery status: Invalid path");
     let mut stat = String::new();
     f.read_to_string(&mut stat).unwrap();
 
@@ -198,7 +200,7 @@ fn workspaces (data: &mut u64) -> String
         if space.rect.2 == 0 { continue; }
 
         let space_name = space.name.clone().unwrap();
-        let mut space_string = space_name.clone();
+        let mut space_icon = space_name.clone();
 
         let mut focused = space.focused;
 
@@ -234,20 +236,20 @@ fn workspaces (data: &mut u64) -> String
                 if (starts_with && node_name.starts_with(w_name)) ||
                     (!starts_with && node_name.ends_with(w_name))
                 {
-                    space_string = String::from(icon);
+                    space_icon = String::from(icon);
                     symbol_index = i + 1;
                 }
             }
         }
 
         // Pad the icon with spaces
-        space_string = format!(" {} ", space_string);
+        space_icon = format!(" {} ", space_icon);
 
         // Create a button for easier navigation
-        space_string = buttonize(&space_string, &format!("workspace {}", space_name));
+        space_icon = buttonize(&space_icon, &format!("workspace {}", space_name));
 
         if focused {
-           space_string = paint(&space_string, WS_CURRENT, "B");
+           space_icon = paint(&space_icon, WS_CURRENT, "B");
         }
 
         // Show unused workspaces wedged between used workspaces
@@ -267,7 +269,7 @@ fn workspaces (data: &mut u64) -> String
             current_ws += 1;
         }
 
-        space_strings.push(space_string);
+        space_strings.push(space_icon);
     }
 
     if !music_found { *data = 0; }
@@ -312,8 +314,14 @@ fn music (data: &mut u64) -> String
 
     // Get window name and set data to the id of the window
     match get_node_from_name_or_id(i3.get_tree().unwrap(), MU_PLAYERNAME, *data) {
-        Some(idname) => { *data = idname.0; window_name = idname.1;},
-        None => { *data = 0; return paint(MU_IND, MU_IDLE_COLOR, "F") }
+        Some(node) => {
+            *data = node.id as u64;
+            window_name = node.name.unwrap();
+        },
+        None => {
+            *data = 0;
+            return paint(MU_IND, MU_IDLE_COLOR, "F")
+        }
     }
     // Return if no music is playing
     if &window_name == MU_PLAYERNAME {
@@ -332,21 +340,24 @@ fn music (data: &mut u64) -> String
 /* Helper Functions */
 /*                  */
 
-// Helper function for tree traversal to find a node with the given name
-fn get_node_from_name_or_id (node: Node, name: &str, id: u64) -> Option<(u64, String)>
+// Search a tree for a node with a specified name or id
+fn get_node_from_name_or_id (node: Node, name: &str, id: u64) -> Option<Node>
 {
-    let node_name = match node.name {
+    let node_name = match node.name.clone() {
         Some(n) => n,
         None => String::new()
     };
 
     if node.id as u64 == id || node_name == name {
-        return Some((node.id as u64, node_name))
+        return Some(node)
     }
 
     for n in node.nodes {
         let res = get_node_from_name_or_id(n, name, id);
-        if res != None { return res; }
+        match res {
+            Some(r) => return Some(r),
+            None => {}
+        }
     }
 
     None
