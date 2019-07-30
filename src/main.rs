@@ -421,16 +421,10 @@ fn buttonize(string: &str, command: &str) -> String
 // Helper function for joining a vector of modules
 fn join_modules(modules: &mut Vec<Module>, sep: &str) -> String
 {
-    let mut out = String::new();
-    if modules.len() > 0 {
-        out += &modules[0].create_string();
-        for i in 1..modules.len() {
-            out += sep;
-            out += &modules[i].create_string();
-        }
-    }
-
-    out
+    modules.iter_mut()
+        .map(|m| m.create_string())
+        .collect::<Vec<String>>()
+        .join(sep)
 }
 
 // Helper function for getting time zone offset in seconds
