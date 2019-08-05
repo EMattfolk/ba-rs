@@ -8,8 +8,8 @@ use i3ipc::reply::NodeType;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use std::process::Command;
-use std::fs::File;
-use std::io::{self, Read};
+use std::fs::read_to_string;
+use std::io;
 use std::thread;
 use std::time;
 use std::env::args;
@@ -157,29 +157,25 @@ fn battery (_data: &mut u64) -> String
     let status_path   = String::from(BAT_PATH) + "status";
 
     // Read capacity
-    let mut f = File::open(capacity_path)
+    let capacity_string = read_to_string(capacity_path)
         .expect("Unable to open battery capacity: Invalid path");
-    let mut cap = String::new();
-    f.read_to_string(&mut cap).unwrap();
 
-    let cap: u32 = cap.trim().parse().unwrap();
+    let capacity: u32 = capacity_string.trim().parse().unwrap();
 
     // Read status
-    let mut f = File::open(status_path)
+    let status = read_to_string(status_path)
         .expect("Unable to open battery status: Invalid path");
-    let mut stat = String::new();
-    f.read_to_string(&mut stat).unwrap();
 
-    let icon = if stat.trim() == "Discharging" { BAT_IND } else { BAT_CHARGING };
+    let icon = if status.trim() == "Discharging" { BAT_IND } else { BAT_CHARGING };
 
     // Assign color depending on capacity
-    for t in (0..BAT_THRESHOLDS.len()).rev() {
-        if cap >= BAT_THRESHOLDS[t] {
-            return paint(icon, BAT_COLORS[t], "F");
+    for i in (0..BAT_THRESHOLDS.len()).rev() {
+        if capacity >= BAT_THRESHOLDS[i] {
+            return paint(icon, BAT_COLORS[i], "F");
         }
     }
 
-    String::from("If you see this, something went very wrong...")
+    paint(icon, TEXT_COLOR, "F")
 }
 
 // Module function for getting the workspaces
@@ -188,11 +184,10 @@ fn workspaces (data: &mut u64) -> String
     let mut i3 = I3Connection::connect().unwrap();
     let mut space_strings = Vec::with_capacity(10);
     let mut spaces = Vec::with_capacity(11);
-
-    get_workspaces(&mut spaces, i3.get_tree().unwrap());
-
     let mut current_ws = 1;
     let mut music_found = false;
+
+    get_workspaces(&mut spaces, i3.get_tree().unwrap());
 
     for space in spaces {
 
@@ -282,10 +277,8 @@ fn network (_data: &mut u64) -> String
 {
     // Read the operstate file to see if the wireless is up
     let status_path = String::from(WL_PATH) + "operstate";
-    let mut file = File::open(status_path).unwrap();
-    let mut status = String::new();
-
-    file.read_to_string(&mut status).unwrap();
+    let status = read_to_string(status_path)
+        .expect("Failed to read wireless status");
 
     if status.trim() == "up" {
         return paint(WL_IND, NET_UP_COLOR, "F");
@@ -293,10 +286,8 @@ fn network (_data: &mut u64) -> String
 
     // Read the operstate file to see if the ethernet is up
     let status_path = String::from(ETH_PATH) + "operstate";
-    let mut file = File::open(status_path).unwrap();
-    let mut status = String::from("");
-
-    file.read_to_string(&mut status).unwrap();
+    let status = read_to_string(status_path)
+        .expect("Failed to read wireless status");
 
     if status.trim() == "up" {
         paint(ETH_IND, NET_UP_COLOR, "F")
@@ -476,7 +467,8 @@ fn output_data(modules: &mut (Vec<Module>, Vec<Module>, Vec<Module>))
 }
 
 // Program function for sending lemonbar output as commands to i3
-fn send_messages() {
+fn send_messages()
+{
     let mut connection = I3Connection::connect()
         .expect("Failed to connect to i3");
 
