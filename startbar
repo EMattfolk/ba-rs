@@ -2,9 +2,10 @@
 background="#121212"
 foreground="#f8f6f2"
 bardata | lemonbar -p \
-	-B $background \
-	-F $foreground \
-	-o 1 -f "Liberation Mono For Powerline:style=Bold" \
-	-o -2 -f "Font Awesome 5 Free:size=11:style=Solid" \
-	-o -2 -f "Font Awesome 5 Brands:size=11" \
-	-u 3 | bardata --send
+    -B $background \
+    -F $foreground \
+    -o 1 -f "Liberation Mono For Powerline:style=Bold" \
+    -o -2 -f "Font Awesome 5 Free:size=11:style=Solid" \
+    -o -2 -f "Font Awesome 5 Brands:size=11" \
+    -o 0 -f "Symbola:size=11" \
+    -u 3 | bardata --send
