@@ -31,45 +31,10 @@ use bardata::*;
 
 const UPDATE_FREQ: u64 = 2;
 
-/// Construct a string with the string representations
-/// of all Modules in a Vector, separated by sep.
-///
-/// # Examples
-///
-/// ```
-/// let out = join_modules(vec![time, cpu], " ");
-///
-/// println!("{}", out);
-/// ```
-pub fn join_modules(modules: &mut Vec<Module>, sep: &str) -> String {
-    modules
-        .iter_mut()
-        .map(|m| m.create_string())
-        .collect::<Vec<String>>()
-        .join(sep)
-}
-
-/// Output a tuple of three Vectors of Modules to stout.
-/// Modules are aligned in the following order:
-///
-/// left                center                right
-///
-/// Modules on each side are separated with a separator
-pub fn output_data(modules: &mut (Vec<Module>, Vec<Module>, Vec<Module>)) {
-    let begin = "";
-    let end = " ";
-    let separator = " ";
-
-    let left = format!("%{{l}}{}", join_modules(&mut modules.0, separator));
-    let center = format!("%{{c}}{}", join_modules(&mut modules.1, separator));
-    let right = format!("%{{r}}{}", join_modules(&mut modules.2, separator));
-
-    println!("{}{}{}{}{}", begin, left, center, right, end);
-}
-
 /// Send messages to i3.
 /// Once called, the program will accept messages through stdin and
 /// then send the messages directly to i3 until the program is closed.
+/// Used to create clickable buttons.
 pub fn send_messages() {
     let mut connection = I3Connection::connect().expect("Failed to connect to i3");
 
@@ -96,31 +61,30 @@ fn main() {
     }
 
     // Initialize modules
-    let workspaces = Module::new(workspaces, ModuleData::Int(0));
-    let time = Module::new(time, ModuleData::Int(0));
-    let network = Module::new(network, ModuleData::Nil);
-    let battery = Module::new(battery, ModuleData::Nil);
-    let music = Module::new(music, ModuleData::Int(0));
-    let cpu = Module::new(cpu, ModuleData::TwoInt(0, 0));
+    let workspaces = barfn!(workspaces);
+    let time = barfn!(time);
+    let network = barfn!(network);
+    let battery = barfn!(battery);
+    let music = barfn!(music);
+    let cpu = barfn!(cpu);
 
     // Arrange modules
-    let left = vec![workspaces];
-    let center = vec![time];
-    let right = vec![music, cpu, network, battery];
+    let bar = Bar {
+        left: vec![workspaces],
+        center: vec![time],
+        right: vec![music, cpu, network, battery]
+    };
 
-    // Arcs used to share module data across threads
-    let modules1 = Arc::new(Mutex::new((left, center, right)));
-    let modules2 = modules1.clone();
+    // Arcs used to share bar across threads
+    let bar_loop = Arc::new(Mutex::new(bar));
+    let bar_i3 = bar_loop.clone();
 
     // Spawn a thread that updates bar every 2 seconds
     thread::spawn(move || {
         let sleep_time = time::Duration::from_secs(UPDATE_FREQ);
 
         loop {
-            let mut modules = modules1.lock().unwrap();
-            output_data(&mut modules);
-            drop(modules);
-
+            bar_loop.lock().unwrap().output_data();
             thread::sleep(sleep_time);
         }
     });
@@ -130,8 +94,6 @@ fn main() {
     listener.subscribe(&[Subscription::Workspace]).unwrap();
 
     for _event in listener.listen() {
-        let mut modules = modules2.lock().unwrap();
-
-        output_data(&mut modules);
+        bar_i3.lock().unwrap().output_data();
     }
 }

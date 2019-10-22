@@ -79,46 +79,106 @@ const CP_IND: &str = "";
 const CP_THRESHOLDS: [u32; 5] = [0, 10, 20, 40, 80];
 const CP_COLORS: [&str; 5] = [BW_GREEN, TEXT_COLOR, BW_LIGHTBROWN, BW_ORANGE, BW_RED];
 
-/*         */
-/* Structs */
-/*         */
-
-#[derive(Copy, Clone)]
-pub enum ModuleData {
-    Int(u64),
-    TwoInt(u64, u64),
-    Nil,
+#[macro_export]
+macro_rules! barfn {
+    ( $($f:expr)? ) => {
+        $(Box::new(Module::new($f)))?
+    };
 }
 
-/// Struct representing a Module which can be shown on the bar.
+/// A container which can print formated data for Lemonbar
+///
+/// # Examples
+///
+/// ```
+/// use bardata::{Module, Bar, barfn};
+///
+/// fn updates(module: &mut Module<u64>) -> String {
+///     module.data += 1;
+///     (module.data - 1).to_string()
+/// }
+///
+/// let mut bar = Bar {
+///     left: vec![barfn!(updates)],
+///     center: vec![],
+///     right: vec![]
+/// };
+///
+/// bar.output_data();
+/// ```
+pub struct Bar {
+    pub left: Vec<Box<dyn BarStr>>,
+    pub center: Vec<Box<dyn BarStr>>,
+    pub right: Vec<Box<dyn BarStr>>,
+}
+
+impl Bar {
+    /// Output a formatted string representing the content of the bar
+    pub fn output_data(&mut self) {
+        let begin = "";
+        let end = " ";
+        let separator = " ";
+
+        let left = format!("%{{l}}{}", Bar::join_modules(&mut self.left, separator));
+        let center = format!("%{{c}}{}", Bar::join_modules(&mut self.center, separator));
+        let right = format!("%{{r}}{}", Bar::join_modules(&mut self.right, separator));
+
+        println!("{}{}{}{}{}", begin, left, center, right, end);
+    }
+
+    /// Construct a string with the string representations
+    /// of all Modules in a Vector, separated by sep.
+    fn join_modules(modules: &mut Vec<Box<dyn BarStr>>, sep: &str) -> String {
+        modules
+            .iter_mut()
+            .map(|m| m.create_string())
+            .collect::<Vec<String>>()
+            .join(sep)
+    }
+}
+
+/// A container suited for making individual components on a `Bar`
 ///
 /// It consists of two main components:
 /// * A function returning the string to show on the bar
 /// * A data field for storing data between updates
 ///
 /// ```
-/// use bardata::{Module, ModuleData};
+/// use bardata::Module;
 ///
-/// fn random_number(module: &mut Module) -> String {
-///     "4".to_string()
+/// fn updates(module: &mut Module<u64>) -> String {
+///     module.data += 1;
+///     (module.data - 1).to_string()
 /// }
 ///
-/// let mut module = Module::new(random_number, ModuleData::Nil);
+/// let mut module = Module::new(updates);
 ///
-/// assert_eq!(module.create_string(), "4");
+/// assert_eq!(module.create_string(), "0");
+/// assert_eq!(module.create_string(), "1");
+/// assert_eq!(module.create_string(), "2");
 /// ```
 #[derive(Clone)]
-pub struct Module {
-    function: fn(&mut Module) -> String,
-    pub data: ModuleData,
+pub struct Module<T> {
+    function: fn(&mut Module<T>) -> String,
+    pub data: T,
 }
 
-impl Module {
-    pub fn new(f: fn(&mut Module) -> String, d: ModuleData) -> Module {
-        Module{function: f, data: d}
+impl<T: Default> Module<T> {
+    pub fn new(f: fn(&mut Module<T>) -> String) -> Module<T> {
+        Module{function: f, data: Default::default()}
     }
 
     pub fn create_string(&mut self) -> String {
+        (self.function)(self)
+    }
+}
+
+pub trait BarStr: Send {
+    fn create_string(&mut self) -> String;
+}
+
+impl<T: Send> BarStr for Module<T> {
+    fn create_string(&mut self) -> String {
         (self.function)(self)
     }
 }
@@ -128,15 +188,15 @@ impl Module {
 /*         */
 
 // Module function to get a string representing the time
-pub fn time(_data: &mut Module) -> String {
+pub fn time(_data: &mut Module<()>) -> String {
     let colon = paint(":", TI_COLON_COLOR, "F");
     let now = Local::now();
 
-    format!("{:?} {:02}{}{:02}", now.weekday(), now.hour(), colon, now.minute())
+    format!("{:02}{}{:02}", now.hour(), colon, now.minute())
 }
 
 // Module function for getting the battery indcator
-pub fn battery(_data: &mut Module) -> String {
+pub fn battery(_data: &mut Module<()>) -> String {
     let capacity_path = String::from(BAT_PATH) + "capacity";
     let status_path = String::from(BAT_PATH) + "status";
 
@@ -168,7 +228,7 @@ pub fn battery(_data: &mut Module) -> String {
 }
 
 // Module function for getting the workspaces
-pub fn workspaces(module: &mut Module) -> String {
+pub fn workspaces(module: &mut Module<i64>) -> String {
     let mut i3 = I3Connection::connect().unwrap();
     let mut space_strings = Vec::with_capacity(10);
     let mut spaces = Vec::with_capacity(11);
@@ -196,16 +256,11 @@ pub fn workspaces(module: &mut Module) -> String {
         for node in nodes {
             focused |= node.focused;
 
-            let stored_id = match module.data {
-                ModuleData::Int(id) => id,
-                _default => 0,
-            };
-
             // Get node name
             let node_name = match node.name {
                 Some(n) => {
-                    if &n == MU_PLAYERNAME || stored_id == node.id as u64 {
-                        module.data = ModuleData::Int(node.id as u64);
+                    if &n == MU_PLAYERNAME || module.data == node.id {
+                        module.data = node.id;
                         music_found = true;
                         String::from(MU_PLAYERNAME)
                     } else {
@@ -264,14 +319,14 @@ pub fn workspaces(module: &mut Module) -> String {
     }
 
     if !music_found {
-        module.data = ModuleData::Int(0);
+        module.data = 0;
     }
 
     space_strings.concat()
 }
 
 // Module function for getting network status
-pub fn network(_data: &mut Module) -> String {
+pub fn network(_data: &mut Module<()>) -> String {
     // Read the operstate file to see if the wireless is up
     let status_path = String::from(WL_PATH) + "operstate";
     let status = read_to_string(status_path).expect("Failed to read wireless status");
@@ -292,23 +347,18 @@ pub fn network(_data: &mut Module) -> String {
 }
 
 // Module function for getting music info
-pub fn music(module: &mut Module) -> String {
+pub fn music(module: &mut Module<i64>) -> String {
     let mut i3 = I3Connection::connect().unwrap();
     let window_name: String;
 
-    let stored_id = match module.data {
-        ModuleData::Int(id) => id,
-        _default => 0,
-    };
-
     // Get window name and set data to the id of the window
-    match get_node_from_name_or_id(i3.get_tree().unwrap(), MU_PLAYERNAME, stored_id) {
+    match get_node_from_name_or_id(i3.get_tree().unwrap(), MU_PLAYERNAME, module.data) {
         Some(node) => {
-            module.data = ModuleData::Int(node.id as u64);
+            module.data = node.id;
             window_name = node.name.unwrap();
         }
         None => {
-            module.data = ModuleData::Int(0);
+            module.data = 0;
             return paint(MU_IND, MU_IDLE_COLOR, "F");
         }
     }
@@ -325,7 +375,7 @@ pub fn music(module: &mut Module) -> String {
 }
 
 // Module function for getting cpu info
-pub fn cpu(module: &mut Module) -> String {
+pub fn cpu(module: &mut Module<(u64, u64)>) -> String {
     // Read cpu values from /proc/stat
     let stats = read_to_string("/proc/stat")
         .expect("Failed to read procfile.")
@@ -335,14 +385,10 @@ pub fn cpu(module: &mut Module) -> String {
         .map(|x| x.parse().unwrap())
         .collect::<Vec<u64>>();
 
-    let (last_idle, last_total) = match module.data {
-        ModuleData::TwoInt(idle, total) => (idle, total),
-        _default => (0, 0),
-    };
-
+    let (last_idle, last_total) = module.data;
     let (idle, total) = (stats[3], stats.iter().sum());
 
-    module.data = ModuleData::TwoInt(idle, total);
+    module.data = (idle, total);
 
     let idle_ratio = (idle - last_idle) as f64 / (total - last_total) as f64;
     let load = 100 - (idle_ratio * 100.0).round() as u32;
@@ -362,21 +408,17 @@ pub fn cpu(module: &mut Module) -> String {
 /*                  */
 
 // Search a tree for a node with a specified name or id
-fn get_node_from_name_or_id(node: Node, name: &str, id: u64) -> Option<Node> {
-    let node_name = match node.name.clone() {
-        Some(n) => n,
-        None => String::new(),
-    };
+fn get_node_from_name_or_id(node: Node, name: &str, id: i64) -> Option<Node> {
+    let t = String::new();
+    let node_name = node.name.as_ref().unwrap_or(&t);
 
-    if node.id as u64 == id || node_name == name {
+    if node.id == id || node_name == name {
         return Some(node);
     }
 
     for n in node.nodes {
-        let res = get_node_from_name_or_id(n, name, id);
-        match res {
-            Some(r) => return Some(r),
-            None => {}
+        if let Some(res) = get_node_from_name_or_id(n, name, id) {
+            return Some(res);
         }
     }
 
@@ -411,7 +453,7 @@ fn get_nodes(data: &mut Vec<Node>, node: Node) {
     }
 }
 
-// Helper function for painting a string a certain color (not literally)
+/// Helper function for changing colors on the bar
 pub fn paint(string: &str, color: &str, layer: &str) -> String {
     let mut to_paint = String::from(string);
 
@@ -430,7 +472,7 @@ pub fn paint(string: &str, color: &str, layer: &str) -> String {
     )
 }
 
-// Helper function for making buttons
+/// Helper function for making lemonbar buttons
 pub fn buttonize(string: &str, command: &str) -> String {
     format!("%{{A:{1}:}}{0}%{{A}}", string, command)
 }
