@@ -31,54 +31,71 @@ const W_NAMES: [(&str, &str, bool); 7] = [
 // Change this to false if your workspace names are not numbered 1..10
 const WS_NUMBERS: bool = true;
 
-// Some colors from badwolf
-const BW_WHITE: &str = "#f8f6f2";
-const BW_DARK: &str = "#121212";
-const BW_GREY: &str = "#45413b";
-const BW_LIGHTGREY: &str = "#857f78";
-const BW_RED: &str = "#ff2c4b";
-const BW_GREEN: &str = "#aeee00";
-const BW_LIGHTBROWN: &str = "#f4cf86";
-const BW_ORANGE: &str = "#ffa724";
+// Some colors
+const WHITE: &str = "#f8f6f2";
+const BLACK: &str = "#121212";
+const GREY: &str = "#45413b";
+const LIGHTGREY: &str = "#857f78";
+const RED: &str = "#ff2c4b";
+const GREEN: &str = "#aeee00";
+const LIGHTBROWN: &str = "#f4cf86";
+const ORANGE: &str = "#ffa724";
 
 // Default colors (these are also defined in the start script)
-const BACKGROUND: &str = BW_DARK;
-const TEXT_COLOR: &str = BW_WHITE;
+const BACKGROUND: &str = BLACK;
+const TEXT_COLOR: &str = WHITE;
 
 // Network
 const WL_PATH: &str = "/sys/class/net/wlp3s0/";
 const WL_IND: &str = "";
 const ETH_PATH: &str = "/sys/class/net/enp2s0/";
 const ETH_IND: &str = "";
-const NET_UP_COLOR: &str = BW_GREEN;
-const NET_DOWN_COLOR: &str = BW_RED;
+const NET_UP_COLOR: &str = GREEN;
+const NET_DOWN_COLOR: &str = RED;
 
 // Battery
 const BAT_PATH: &str = "/sys/class/power_supply/BAT0/";
 const BAT_IND: &str = "";
 const BAT_CHARGING: &str = "";
 const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
-const BAT_COLORS: [&str; 5] = [BW_RED, BW_ORANGE, BW_LIGHTBROWN, TEXT_COLOR, BW_GREEN];
+const BAT_COLORS: [&str; 5] = [RED, ORANGE, LIGHTBROWN, TEXT_COLOR, GREEN];
 
 // Music
-pub const MU_PLAYERNAME: &str = "Spotify";
-pub const MU_PLAYERICO: &str = "";
+const MU_PLAYERNAME: &str = "Spotify Premium";
+const MU_PLAYERICO: &str = "";
 const MU_IND: &str = "";
-const MU_IDLE_COLOR: &str = BW_GREY;
-const MU_PLAY_COLOR: &str = BW_ORANGE;
+const MU_IDLE_COLOR: &str = GREY;
+const MU_PLAY_COLOR: &str = ORANGE;
 
 // Time
-const TI_COLON_COLOR: &str = BW_LIGHTGREY;
+const TI_COLON_COLOR: &str = LIGHTGREY;
 
 // Workspace
-const WS_CURRENT: &str = BW_GREY;
-const WS_NUM_COLOR: &str = BW_LIGHTGREY;
+const WS_CURRENT: &str = GREY;
+const WS_NUM_COLOR: &str = LIGHTGREY;
 
 // Cpu
 const CP_IND: &str = "";
 const CP_THRESHOLDS: [u32; 5] = [0, 10, 20, 40, 80];
-const CP_COLORS: [&str; 5] = [BW_GREEN, TEXT_COLOR, BW_LIGHTBROWN, BW_ORANGE, BW_RED];
+const CP_COLORS: [&str; 5] = [GREEN, TEXT_COLOR, LIGHTBROWN, ORANGE, RED];
 
+/// Create a module that can be stored in a bar from a function
+///
+/// # Examples
+///
+/// ```
+/// use bardata::{Module, BarStr, barfn};
+///
+/// fn updates(module: &mut Module<u64>) -> String {
+///     module.data += 1;
+///     (module.data - 1).to_string()
+/// }
+/// let mut updates_module: Box<dyn BarStr> = barfn!(updates);
+/// 
+/// assert_eq!(updates_module.create_string(), "0");
+/// assert_eq!(updates_module.create_string(), "1");
+/// assert_eq!(updates_module.create_string(), "2");
+/// ```
 #[macro_export]
 macro_rules! barfn {
     ( $($f:expr)? ) => {
@@ -91,7 +108,7 @@ macro_rules! barfn {
 /// # Examples
 ///
 /// ```
-/// use bardata::{Module, Bar, barfn};
+/// use bardata::{Module, Bar, BarStr, barfn};
 ///
 /// fn updates(module: &mut Module<u64>) -> String {
 ///     module.data += 1;
@@ -142,21 +159,6 @@ impl Bar {
 /// It consists of two main components:
 /// * A function returning the string to show on the bar
 /// * A data field for storing data between updates
-///
-/// ```
-/// use bardata::Module;
-///
-/// fn updates(module: &mut Module<u64>) -> String {
-///     module.data += 1;
-///     (module.data - 1).to_string()
-/// }
-///
-/// let mut module = Module::new(updates);
-///
-/// assert_eq!(module.create_string(), "0");
-/// assert_eq!(module.create_string(), "1");
-/// assert_eq!(module.create_string(), "2");
-/// ```
 #[derive(Clone)]
 pub struct Module<T> {
     function: fn(&mut Module<T>) -> String,
@@ -166,10 +168,6 @@ pub struct Module<T> {
 impl<T: Default> Module<T> {
     pub fn new(f: fn(&mut Module<T>) -> String) -> Module<T> {
         Module{function: f, data: Default::default()}
-    }
-
-    pub fn create_string(&mut self) -> String {
-        (self.function)(self)
     }
 }
 
@@ -187,7 +185,7 @@ impl<T: Send> BarStr for Module<T> {
 /* Modules */
 /*         */
 
-// Module function to get a string representing the time
+/// Create a lemonbar-formatted `String` representing the current time
 pub fn time(_data: &mut Module<()>) -> String {
     let colon = paint(":", TI_COLON_COLOR, "F");
     let now = Local::now();
@@ -195,7 +193,7 @@ pub fn time(_data: &mut Module<()>) -> String {
     format!("{:02}{}{:02}", now.hour(), colon, now.minute())
 }
 
-// Module function for getting the battery indcator
+/// Create a lemonbar-formatted `String` representing battery status
 pub fn battery(_data: &mut Module<()>) -> String {
     let capacity_path = String::from(BAT_PATH) + "capacity";
     let status_path = String::from(BAT_PATH) + "status";
@@ -227,7 +225,14 @@ pub fn battery(_data: &mut Module<()>) -> String {
     paint(icon, TEXT_COLOR, "F")
 }
 
-// Module function for getting the workspaces
+/// Create a lemonbar-formatted `String` representing workspaces
+///
+/// ### Stored data
+/// * `music_window_id: i64`
+///
+/// The reason for storing the id of the music player's window
+/// is so that when music is played--the bar remembers which window
+/// it is.
 pub fn workspaces(module: &mut Module<i64>) -> String {
     let mut i3 = I3Connection::connect().unwrap();
     let mut space_strings = Vec::with_capacity(10);
@@ -325,7 +330,7 @@ pub fn workspaces(module: &mut Module<i64>) -> String {
     space_strings.concat()
 }
 
-// Module function for getting network status
+/// Create a lemonbar-formatted `String` representing network connection
 pub fn network(_data: &mut Module<()>) -> String {
     // Read the operstate file to see if the wireless is up
     let status_path = String::from(WL_PATH) + "operstate";
@@ -346,7 +351,10 @@ pub fn network(_data: &mut Module<()>) -> String {
     }
 }
 
-// Module function for getting music info
+/// Create a lemonbar-formatted `String` representing playing music
+///
+/// ### Stored data
+/// * `window_id: i64`
 pub fn music(module: &mut Module<i64>) -> String {
     let mut i3 = I3Connection::connect().unwrap();
     let window_name: String;
@@ -374,7 +382,11 @@ pub fn music(module: &mut Module<i64>) -> String {
     paint(MU_IND, MU_PLAY_COLOR, "F") + " " + name_parts[0] + " - " + name_parts[1]
 }
 
-// Module function for getting cpu info
+/// Create a lemonbar-formatted `String` representing the cpu
+///
+/// ### Stored data
+/// * `idle_time: u64`
+/// * `total_time: u64`
 pub fn cpu(module: &mut Module<(u64, u64)>) -> String {
     // Read cpu values from /proc/stat
     let stats = read_to_string("/proc/stat")
@@ -407,7 +419,7 @@ pub fn cpu(module: &mut Module<(u64, u64)>) -> String {
 /* Helper Functions */
 /*                  */
 
-// Search a tree for a node with a specified name or id
+/// Search a i3 tree for a node with a certain name or id
 fn get_node_from_name_or_id(node: Node, name: &str, id: i64) -> Option<Node> {
     let t = String::new();
     let node_name = node.name.as_ref().unwrap_or(&t);
@@ -425,7 +437,7 @@ fn get_node_from_name_or_id(node: Node, name: &str, id: i64) -> Option<Node> {
     None
 }
 
-// Helper function for tree traversal to find workspaces
+/// Get all workspaces in a i3 tree
 fn get_workspaces(data: &mut Vec<Node>, node: Node) {
     if node.nodetype == NodeType::Workspace {
         data.push(node);
@@ -436,7 +448,7 @@ fn get_workspaces(data: &mut Vec<Node>, node: Node) {
     }
 }
 
-// Helper function for tree traversal to find nodes
+/// Get all nodes in a i3 tree
 fn get_nodes(data: &mut Vec<Node>, node: Node) {
     if node.nodes.len() == 0
         && node.floating_nodes.len() == 0

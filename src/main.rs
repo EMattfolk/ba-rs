@@ -1,3 +1,18 @@
+/*                                     */
+/*             Created by              */
+/*            Erik Mattfolk            */
+/*               2018/12               */
+/*                                     */
+/*  A status bar data-generator-thing  */
+/*         Designed to be light        */
+/*                                     */
+/*             -Features-              */
+/*        No unecessary numbers        */
+/*     Cool icons for applications     */
+/*      Music player integration       */
+/*         Minimalistic design         */
+/*                                     */
+
 //! A small program used to create good-looking configurations
 //! for lemonbar running on i3.
 
@@ -14,27 +29,18 @@ use std::time;
 
 use bardata::*;
 
-/*                                     */
-/*             Created by              */
-/*            Erik Mattfolk            */
-/*               2018/12               */
-/*                                     */
-/*  A status bar data-generator-thing  */
-/*         Designed to be light        */
-/*                                     */
-/*             -Features-              */
-/*        No unecessary numbers        */
-/*     Cool icons for applications     */
-/*      Music player integration       */
-/*         Minimalistic design         */
-/*                                     */
-
 const UPDATE_FREQ: u64 = 2;
 
 /// Send messages to i3.
 /// Once called, the program will accept messages through stdin and
 /// then send the messages directly to i3 until the program is closed.
 /// Used to create clickable buttons.
+///
+/// # Examples
+///
+/// ```sh
+/// bardata | lemonbar -p | bardata --send
+/// ```
 pub fn send_messages() {
     let mut connection = I3Connection::connect().expect("Failed to connect to i3");
 
