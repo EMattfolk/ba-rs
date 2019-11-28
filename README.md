@@ -1,5 +1,6 @@
 # Bardata
 A data generator for lemonbar.
+![example](example.png)
 
 ## Features
 * Light

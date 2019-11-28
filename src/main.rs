@@ -53,11 +53,10 @@ pub fn send_messages() {
     }
 }
 
-/*      */
-/* Main */
-/*      */
-
-// The main function. This is where the magic happens
+/// The main function.
+/// It constructs the bar and then launches a thread that updates
+/// the bar regularly. The program then waits for events from i3
+/// which should update the bar.
 fn main() {
     // Get arguments
     let argv: Vec<String> = args().collect();

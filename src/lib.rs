@@ -91,7 +91,7 @@ const CP_COLORS: [&str; 5] = [GREEN, TEXT_COLOR, LIGHTBROWN, ORANGE, RED];
 ///     (module.data - 1).to_string()
 /// }
 /// let mut updates_module: Box<dyn BarStr> = barfn!(updates);
-/// 
+///
 /// assert_eq!(updates_module.create_string(), "0");
 /// assert_eq!(updates_module.create_string(), "1");
 /// assert_eq!(updates_module.create_string(), "2");
@@ -231,8 +231,7 @@ pub fn battery(_data: &mut Module<()>) -> String {
 /// * `music_window_id: i64`
 ///
 /// The reason for storing the id of the music player's window
-/// is so that when music is played--the bar remembers which window
-/// it is.
+/// is to remember which window it is after it changes name.
 pub fn workspaces(module: &mut Module<i64>) -> String {
     let mut i3 = I3Connection::connect().unwrap();
     let mut space_strings = Vec::with_capacity(10);
