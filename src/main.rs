@@ -20,6 +20,7 @@ extern crate i3ipc;
 use i3ipc::I3Connection;
 use i3ipc::I3EventListener;
 use i3ipc::Subscription;
+use i3ipc::event::Event;
 
 use std::env::args;
 use std::io;
@@ -58,7 +59,7 @@ pub fn send_messages() {
 /// the bar regularly. The program then waits for events from i3
 /// which should update the bar.
 fn main() {
-    // Get arguments
+
     let argv: Vec<String> = args().collect();
 
     if argv.contains(&String::from("--send")) {
@@ -74,13 +75,13 @@ fn main() {
     let cpu = barfn!(cpu);
 
     // Arrange modules
-    let bar = Bar {
-        left: vec![workspaces],
-        center: vec![time],
-        right: vec![music, cpu, network, battery]
-    };
+    let bar = Bar::new(
+        vec![workspaces],
+        vec![time],
+        vec![music, cpu, network, battery]
+    );
 
-    // Arcs used to share bar across threads
+    // Prepare bar for multithreading
     let bar_loop = Arc::new(Mutex::new(bar));
     let bar_i3 = bar_loop.clone();
 
@@ -96,9 +97,24 @@ fn main() {
 
     // Set up i3 listener
     let mut listener = I3EventListener::connect().unwrap();
-    listener.subscribe(&[Subscription::Workspace]).unwrap();
+    listener.subscribe(&[Subscription::Workspace, Subscription::Binding]).unwrap();
 
-    for _event in listener.listen() {
-        bar_i3.lock().unwrap().output_data();
+    for event in listener.listen() {
+        match event.unwrap() {
+            Event::WorkspaceEvent(_) => bar_i3.lock().unwrap().output_data(),
+            Event::BindingEvent(e) => {
+                let mut bar_i3 = bar_i3.lock().unwrap();
+                if e.binding.command == "exec #show_bar_detail" {
+                    if bar_i3.is_detailed() { continue; }
+                    bar_i3.set_detailed(true);
+                } else if e.binding.command == "exec #hide_bar_detail" {
+                    if !bar_i3.is_detailed() { continue; }
+                    bar_i3.set_detailed(false);
+                }
+
+                bar_i3.output_data()
+            },
+            _ => unreachable!()
+        }
     }
 }

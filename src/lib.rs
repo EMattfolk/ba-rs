@@ -103,7 +103,20 @@ macro_rules! barfn {
     };
 }
 
-/// A container which can print formated data for Lemonbar
+/// Trait for structs that represent a bar or something on the bar.
+pub trait BarStr: Send {
+    /// Create a lemonbar-formatted `String` representing the object.
+    fn create_string(&mut self) -> String;
+
+    /// Set if this object should output detailed information.
+    fn set_detailed(&mut self, detailed: bool);
+
+    /// Return `true` if the object outputs detailed information.
+    fn is_detailed(&self) -> bool;
+}
+
+
+/// A container which can print formated data for Lemonbar.
 ///
 /// # Examples
 ///
@@ -127,20 +140,21 @@ pub struct Bar {
     pub left: Vec<Box<dyn BarStr>>,
     pub center: Vec<Box<dyn BarStr>>,
     pub right: Vec<Box<dyn BarStr>>,
+    detailed: bool,
 }
 
 impl Bar {
-    /// Output a formatted string representing the content of the bar
+    /// Create a new bar from vectors of modules
+    pub fn new(left: Vec<Box<dyn BarStr>>,
+        center: Vec<Box<dyn BarStr>>,
+        right: Vec<Box<dyn BarStr>>) -> Bar
+    {
+        Bar{left: left, center: center, right: right, detailed: false}
+    }
+
+    /// Output a formatted string representing the content of the bar.
     pub fn output_data(&mut self) {
-        let begin = "";
-        let end = " ";
-        let separator = " ";
-
-        let left = format!("%{{l}}{}", Bar::join_modules(&mut self.left, separator));
-        let center = format!("%{{c}}{}", Bar::join_modules(&mut self.center, separator));
-        let right = format!("%{{r}}{}", Bar::join_modules(&mut self.right, separator));
-
-        println!("{}{}{}{}{}", begin, left, center, right, end);
+        println!("{}", self.create_string());
     }
 
     /// Construct a string with the string representations
@@ -154,7 +168,39 @@ impl Bar {
     }
 }
 
-/// A container suited for making individual components on a `Bar`
+impl BarStr for Bar {
+
+    fn create_string(&mut self) -> String {
+        let begin = "";
+        let end = " ";
+        let separator = " ";
+
+        let left = format!("%{{l}}{}", Bar::join_modules(&mut self.left, separator));
+        let center = format!("%{{c}}{}", Bar::join_modules(&mut self.center, separator));
+        let right = format!("%{{r}}{}", Bar::join_modules(&mut self.right, separator));
+
+        format!("{}{}{}{}{}", begin, left, center, right, end)
+    }
+
+    fn set_detailed(&mut self, detailed: bool) {
+        for module in self
+            .left
+            .iter_mut()
+            .chain(self.center.iter_mut())
+            .chain(self.right.iter_mut())
+        {
+            module.set_detailed(detailed);
+        }
+
+        self.detailed = detailed;
+    }
+
+    fn is_detailed(&self) -> bool {
+        self.detailed
+    }
+}
+
+/// A container suited for making individual components on a `Bar`.
 ///
 /// It consists of two main components:
 /// * A function returning the string to show on the bar
@@ -163,21 +209,26 @@ impl Bar {
 pub struct Module<T> {
     function: fn(&mut Module<T>) -> String,
     pub data: T,
+    detailed: bool,
 }
 
 impl<T: Default> Module<T> {
     pub fn new(f: fn(&mut Module<T>) -> String) -> Module<T> {
-        Module{function: f, data: Default::default()}
+        Module{function: f, data: Default::default(), detailed: false}
     }
-}
-
-pub trait BarStr: Send {
-    fn create_string(&mut self) -> String;
 }
 
 impl<T: Send> BarStr for Module<T> {
     fn create_string(&mut self) -> String {
         (self.function)(self)
+    }
+
+    fn set_detailed(&mut self, detailed: bool) {
+        self.detailed = detailed;
+    }
+
+    fn is_detailed(&self) -> bool {
+        self.detailed
     }
 }
 
@@ -185,16 +236,27 @@ impl<T: Send> BarStr for Module<T> {
 /* Modules */
 /*         */
 
-/// Create a lemonbar-formatted `String` representing the current time
-pub fn time(_data: &mut Module<()>) -> String {
+/// Create a lemonbar-formatted `String` representing the current time.
+pub fn time(module: &mut Module<()>) -> String {
     let colon = paint(":", TI_COLON_COLOR, "F");
     let now = Local::now();
 
-    format!("{:02}{}{:02}", now.hour(), colon, now.minute())
+    if module.is_detailed() {
+        format!("{:02}{}{:02} {:?} {}-{:02}-{:02}",
+            now.hour(),
+            colon,
+            now.minute(),
+            now.weekday(),
+            now.year(),
+            now.month(),
+            now.day())
+    } else {
+        format!("{:02}{}{:02}", now.hour(), colon, now.minute())
+    }
 }
 
-/// Create a lemonbar-formatted `String` representing battery status
-pub fn battery(_data: &mut Module<()>) -> String {
+/// Create a lemonbar-formatted `String` representing battery status.
+pub fn battery(module: &mut Module<()>) -> String {
     let capacity_path = String::from(BAT_PATH) + "capacity";
     let status_path = String::from(BAT_PATH) + "status";
 
@@ -218,14 +280,19 @@ pub fn battery(_data: &mut Module<()>) -> String {
     // Assign color depending on capacity
     for i in (0..BAT_THRESHOLDS.len()).rev() {
         if capacity >= BAT_THRESHOLDS[i] {
-            return paint(icon, BAT_COLORS[i], "F");
+            let ret = paint(icon, BAT_COLORS[i], "F");
+            if module.is_detailed() {
+                return format!("{} {}", ret, capacity);
+            } else {
+                return ret;
+            }
         }
     }
 
-    paint(icon, TEXT_COLOR, "F")
+    unreachable!();
 }
 
-/// Create a lemonbar-formatted `String` representing workspaces
+/// Create a lemonbar-formatted `String` representing workspaces.
 ///
 /// ### Stored data
 /// * `music_window_id: i64`
@@ -329,7 +396,7 @@ pub fn workspaces(module: &mut Module<i64>) -> String {
     space_strings.concat()
 }
 
-/// Create a lemonbar-formatted `String` representing network connection
+/// Create a lemonbar-formatted `String` representing network connection.
 pub fn network(_data: &mut Module<()>) -> String {
     // Read the operstate file to see if the wireless is up
     let status_path = String::from(WL_PATH) + "operstate";
@@ -339,7 +406,6 @@ pub fn network(_data: &mut Module<()>) -> String {
         return paint(WL_IND, NET_UP_COLOR, "F");
     }
 
-    // Read the operstate file to see if the ethernet is up
     let status_path = String::from(ETH_PATH) + "operstate";
     let status = read_to_string(status_path).expect("Failed to read wireless status");
 
@@ -350,7 +416,7 @@ pub fn network(_data: &mut Module<()>) -> String {
     }
 }
 
-/// Create a lemonbar-formatted `String` representing playing music
+/// Create a lemonbar-formatted `String` representing playing music.
 ///
 /// ### Stored data
 /// * `window_id: i64`
@@ -369,6 +435,7 @@ pub fn music(module: &mut Module<i64>) -> String {
             return paint(MU_IND, MU_IDLE_COLOR, "F");
         }
     }
+
     // Return if no music is playing
     if &window_name == MU_PLAYERNAME {
         return paint(MU_IND, MU_IDLE_COLOR, "F");
@@ -376,12 +443,14 @@ pub fn music(module: &mut Module<i64>) -> String {
 
     let name_parts: Vec<&str> = window_name.split(" - ").collect();
 
-    assert!(name_parts.len() > 1, "Invalid song format");
+    if name_parts.len() <= 1 {
+        panic!("Invalid song format! Expected 'Name - Artist ..' got '{}'", window_name);
+    }
 
     paint(MU_IND, MU_PLAY_COLOR, "F") + " " + name_parts[0] + " - " + name_parts[1]
 }
 
-/// Create a lemonbar-formatted `String` representing the cpu
+/// Create a lemonbar-formatted `String` representing the cpu.
 ///
 /// ### Stored data
 /// * `idle_time: u64`
@@ -407,18 +476,23 @@ pub fn cpu(module: &mut Module<(u64, u64)>) -> String {
     // Assign color depending on cpu load
     for i in (0..CP_THRESHOLDS.len()).rev() {
         if load >= CP_THRESHOLDS[i] {
-            return paint(CP_IND, CP_COLORS[i], "F");
+            let ret = paint(CP_IND, CP_COLORS[i], "F");
+            if module.is_detailed() {
+                return format!("{} {}", ret, load);
+            } else {
+                return ret;
+            }
         }
     }
 
-    paint(CP_IND, TEXT_COLOR, "F")
+    unreachable!();
 }
 
 /*                  */
 /* Helper Functions */
 /*                  */
 
-/// Search a i3 tree for a node with a certain name or id
+/// Search a i3 tree for a node with a certain name or id.
 fn get_node_from_name_or_id(node: Node, name: &str, id: i64) -> Option<Node> {
     let t = String::new();
     let node_name = node.name.as_ref().unwrap_or(&t);
@@ -436,7 +510,7 @@ fn get_node_from_name_or_id(node: Node, name: &str, id: i64) -> Option<Node> {
     None
 }
 
-/// Get all workspaces in a i3 tree
+/// Get all workspaces in a i3 tree.
 fn get_workspaces(data: &mut Vec<Node>, node: Node) {
     if node.nodetype == NodeType::Workspace {
         data.push(node);
@@ -447,7 +521,7 @@ fn get_workspaces(data: &mut Vec<Node>, node: Node) {
     }
 }
 
-/// Get all nodes in a i3 tree
+/// Put all nodes in a i3 tree `node` into the vector `data`.
 fn get_nodes(data: &mut Vec<Node>, node: Node) {
     if node.nodes.len() == 0
         && node.floating_nodes.len() == 0
@@ -464,7 +538,7 @@ fn get_nodes(data: &mut Vec<Node>, node: Node) {
     }
 }
 
-/// Helper function for changing colors on the bar
+/// Helper function for changing colors on the bar.
 pub fn paint(string: &str, color: &str, layer: &str) -> String {
     let mut to_paint = String::from(string);
 
@@ -483,7 +557,7 @@ pub fn paint(string: &str, color: &str, layer: &str) -> String {
     )
 }
 
-/// Helper function for making lemonbar buttons
+/// Helper function for making lemonbar buttons.
 pub fn buttonize(string: &str, command: &str) -> String {
     format!("%{{A:{1}:}}{0}%{{A}}", string, command)
 }
