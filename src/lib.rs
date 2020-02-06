@@ -12,19 +12,23 @@ use std::fs::read_to_string;
 
 // Some icons for programs, in order of priority
 const FIREFOX: &str = "";
+const CHROME: &str = "";
 const STEAM: &str = "";
 const DISCORD: &str = "";
+const TELEGRAM: &str = "";
 const CODE: &str = "";
 const TERM: &str = "";
 const UNDEF: &str = "";
 
-const W_NAMES: [(&str, &str, bool); 7] = [
+const W_NAMES: [(&str, &str, bool); 9] = [
     ("", UNDEF, true),
     ("st", TERM, true),
     ("nvim", CODE, true),
     ("Discord", DISCORD, false),
+    ("Telegram", TELEGRAM, true),
     ("Steam", STEAM, true),
     ("Firefox", FIREFOX, false),
+    ("Brave", CHROME, false),
     (MU_PLAYERNAME, MU_PLAYERICO, true),
 ];
 
