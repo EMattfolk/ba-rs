@@ -441,13 +441,15 @@ pub fn music(module: &mut Module<i64>) -> String {
         return paint(MU_IND, MU_IDLE_COLOR, "F");
     }
 
-    let name_parts: Vec<&str> = window_name.split(" - ").collect();
+    let mut song_desc = window_name.split(" - ");
 
-    if name_parts.len() <= 1 {
-        panic!("Invalid song format! Expected 'Name - Artist ..' got '{}'", window_name);
+    if let Some(name) = song_desc.next() {
+        if let Some(artist) = song_desc.next() {
+            return format!("{} {} - {}", paint(MU_IND, MU_PLAY_COLOR, "F"), name, artist)
+        }
     }
 
-    paint(MU_IND, MU_PLAY_COLOR, "F") + " " + name_parts[0] + " - " + name_parts[1]
+    panic!("Invalid song format! Expected 'Name - Artist ..' got '{}'", window_name);
 }
 
 /// Create a lemonbar-formatted `String` representing the cpu.
