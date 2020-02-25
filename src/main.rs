@@ -31,6 +31,8 @@ use std::time;
 use bardata::*;
 
 const UPDATE_FREQ: u64 = 2;
+const DETAIL_COMMAND: &str = "nop #show_bar_detail";
+const HIDE_DETAIL_COMMAND: &str = "nop #hide_bar_detail";
 
 /// Send messages to i3.
 /// Once called, the program will accept messages through stdin and
@@ -104,10 +106,10 @@ fn main() {
             Event::WorkspaceEvent(_) => bar_i3.lock().unwrap().output_data(),
             Event::BindingEvent(e) => {
                 let mut bar_i3 = bar_i3.lock().unwrap();
-                if e.binding.command == "exec #show_bar_detail" {
+                if e.binding.command == DETAIL_COMMAND {
                     if bar_i3.is_detailed() { continue; }
                     bar_i3.set_detailed(true);
-                } else if e.binding.command == "exec #hide_bar_detail" {
+                } else if e.binding.command == HIDE_DETAIL_COMMAND {
                     if !bar_i3.is_detailed() { continue; }
                     bar_i3.set_detailed(false);
                 }
