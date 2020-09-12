@@ -20,9 +20,10 @@ const CODE: &str = "";
 const TERM: &str = "";
 const UNDEF: &str = "";
 
-const W_NAMES: [(&str, &str, bool); 9] = [
+const W_NAMES: [(&str, &str, bool); 10] = [
     ("", UNDEF, true),
     ("st", TERM, true),
+    ("zsh", TERM, true),
     ("nvim", CODE, true),
     ("Discord", DISCORD, false),
     ("Telegram", TELEGRAM, true),
