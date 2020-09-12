@@ -15,9 +15,7 @@ Before installing, take a look at the __*configuration*__ section.
 ```
 git clone https://github.com/EMattfolk/bardata
 cd bardata
-cargo build --release
-cp target/release/bardata ~/.local/bin/
-cp togglebar ~/.local/bin/
+./install.sh
 ```
 
 ## Configuration
@@ -25,7 +23,7 @@ To configure your bar, open `main.rs` with your favorite text editor and make
 the desired changes.
 
 If you want to change the background, fonts or the text color. It is necessary
-to edit the start script as well.
+to edit the `togglebar` script as well.
 
 When you are done, go ahead and install.
 
