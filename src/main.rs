@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time;
 
-use bardata::*;
+use ba::*;
 
 const UPDATE_FREQ: u64 = 2;
 const DETAIL_COMMAND: &str = "nop #show_bar_detail";
@@ -42,7 +42,7 @@ const HIDE_DETAIL_COMMAND: &str = "nop #hide_bar_detail";
 /// # Examples
 ///
 /// ```sh
-/// bardata | lemonbar -p | bardata --send
+/// ba | lemonbar -p | ba --send
 /// ```
 pub fn send_messages() {
     let mut connection = I3Connection::connect().expect("Failed to connect to i3");

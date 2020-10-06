@@ -4,13 +4,13 @@
 cargo build --release
 
 # Kill current running bar
-killall bardata
+killall ba
 killall lemonbar
 
 mkdir -p ~/.local/bin
 
 # Copy over the bar
-cp target/release/bardata ~/.local/bin/bardata
+cp target/release/ba ~/.local/bin/ba
 cp togglebar ~/.local/bin/togglebar
 
 # Start the bar

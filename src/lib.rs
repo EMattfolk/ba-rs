@@ -89,7 +89,7 @@ const CP_COLORS: [&str; 5] = [GREEN, TEXT_COLOR, LIGHTBROWN, ORANGE, RED];
 /// # Examples
 ///
 /// ```
-/// use bardata::{Module, BarStr, barfn};
+/// use ba::{Module, BarStr, barfn};
 ///
 /// fn updates(module: &mut Module<u64>) -> String {
 ///     module.data += 1;
@@ -126,7 +126,7 @@ pub trait BarStr: Send {
 /// # Examples
 ///
 /// ```
-/// use bardata::{Module, Bar, BarStr, barfn};
+/// use ba::{Module, Bar, BarStr, barfn};
 ///
 /// fn updates(module: &mut Module<u64>) -> String {
 ///     module.data += 1;

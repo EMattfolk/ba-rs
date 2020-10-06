@@ -35,7 +35,7 @@ When you are done, go ahead and install.
 ## Uninstallation
 If you wish to remove ba-rs from your system, run these commands
 ```
-rm ~/.local/bin/bars
+rm ~/.local/bin/ba
 rm ~/.local/bin/togglebar
 ```
 And finally, remove the git repo.
