@@ -45,6 +45,7 @@ const RED: &str = "#ff2c4b";
 const GREEN: &str = "#aeee00";
 const LIGHTBROWN: &str = "#f4cf86";
 const ORANGE: &str = "#ffa724";
+const ERROR_COLOR: &str = RED;
 
 // Default colors (these are also defined in the start script)
 const BACKGROUND: &str = BLACK;
@@ -405,7 +406,12 @@ pub fn workspaces(module: &mut Module<i64>) -> String {
 pub fn network(_data: &mut Module<()>) -> String {
     // Read the operstate file to see if the wireless is up
     let status_path = String::from(WL_PATH) + "operstate";
-    let status = read_to_string(status_path).expect("Failed to read wireless status");
+    let status = read_to_string(status_path);
+    if status.is_err() {
+        return paint("ERROR", ERROR_COLOR, "F");
+    }
+    let status = status.unwrap();
+
 
     if status.trim() == "up" {
         return paint(WL_IND, NET_UP_COLOR, "F");
