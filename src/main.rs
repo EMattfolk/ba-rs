@@ -31,6 +31,7 @@ use std::time;
 use ba::*;
 
 const UPDATE_FREQ: u64 = 2;
+const TOGGLE_COMMAND: &str = "nop #toggle_bar_detail";
 const DETAIL_COMMAND: &str = "nop #show_bar_detail";
 const HIDE_DETAIL_COMMAND: &str = "nop #hide_bar_detail";
 
@@ -106,7 +107,13 @@ fn main() {
             Event::WorkspaceEvent(_) => bar_i3.lock().unwrap().output_data(),
             Event::BindingEvent(e) => {
                 let mut bar_i3 = bar_i3.lock().unwrap();
-                if e.binding.command == DETAIL_COMMAND {
+                if e.binding.command == TOGGLE_COMMAND {
+                    if bar_i3.is_detailed() {
+                        bar_i3.set_detailed(false);
+                    } else {
+                        bar_i3.set_detailed(true);
+                    }
+                } else if e.binding.command == DETAIL_COMMAND {
                     if bar_i3.is_detailed() { continue; }
                     bar_i3.set_detailed(true);
                 } else if e.binding.command == HIDE_DETAIL_COMMAND {
