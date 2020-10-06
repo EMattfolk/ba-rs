@@ -1,4 +1,4 @@
-# Bardata
+# ba-rs
 A data generator for lemonbar.
 ![example](example.png)
 
@@ -6,20 +6,19 @@ A data generator for lemonbar.
 * Light
 * Minimalistic design
 * i3 integration
-* No unnecessary numbers
 * Shows what music you are listening to
 * Configurable
 
 ## Installation
 Before installing, take a look at the __*configuration*__ section.
 ```
-git clone https://github.com/EMattfolk/bardata
-cd bardata
+git clone https://github.com/EMattfolk/ba-rs.git
+cd ba-rs
 ./install.sh
 ```
 
 ## Configuration
-To configure your bar, open `main.rs` with your favorite text editor and make
+To configure your bar, open `main.rs` and `lib.rs` with your favorite text editor and make
 the desired changes.
 
 If you want to change the background, fonts or the text color. It is necessary
@@ -34,9 +33,9 @@ When you are done, go ahead and install.
 * FontAwesome (optional, but recommended)
 
 ## Uninstallation
-If you wish to remove bardata from your system, run these commands
+If you wish to remove ba-rs from your system, run these commands
 ```
-rm ~/.local/bin/bardata
+rm ~/.local/bin/bars
 rm ~/.local/bin/togglebar
 ```
 And finally, remove the git repo.
