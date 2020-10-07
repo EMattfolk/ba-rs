@@ -1,4 +1,6 @@
 # ba-rs
+![Sheep go BAAAAA](img/ba-rs-logo.png)
+
 A data generator for lemonbar.
 ![example](example.png)
 
