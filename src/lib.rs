@@ -63,8 +63,13 @@ const NET_DOWN_COLOR: &str = RED;
 const BAT_PATH: &str = "/sys/class/power_supply/BAT0/";
 const BAT_IND: &str = "";
 const BAT_CHARGING: &str = "";
-const BAT_THRESHOLDS: [u32; 5] = [0, 20, 35, 50, 90];
-const BAT_COLORS: [&str; 5] = [RED, ORANGE, LIGHTBROWN, TEXT_COLOR, GREEN];
+const BAT_RANGES: [(&str, u32); 5] = [
+    (RED, 0),
+    (ORANGE, 20),
+    (LIGHTBROWN, 35),
+    (WHITE, 50),
+    (GREEN, 90),
+];
 
 // Music
 const MU_PLAYERNAME: &str = "Spotify Premium";
@@ -82,8 +87,13 @@ const WS_NUM_COLOR: &str = LIGHTGREY;
 
 // Cpu
 const CP_IND: &str = "";
-const CP_THRESHOLDS: [u32; 5] = [0, 10, 20, 40, 80];
-const CP_COLORS: [&str; 5] = [GREEN, TEXT_COLOR, LIGHTBROWN, ORANGE, RED];
+const CPU_RANGES: [(&str, u32); 5] = [
+    (GREEN, 0),
+    (TEXT_COLOR, 10),
+    (LIGHTBROWN, 20),
+    (ORANGE, 40),
+    (RED, 80),
+];
 
 /// Create a module that can be stored in a bar from a function
 ///
@@ -284,9 +294,9 @@ pub fn battery(module: &mut Module<()>) -> String {
     };
 
     // Assign color depending on capacity
-    for i in (0..BAT_THRESHOLDS.len()).rev() {
-        if capacity >= BAT_THRESHOLDS[i] {
-            let ret = paint(icon, BAT_COLORS[i], "F");
+    for (color, thresh) in BAT_RANGES.iter().rev() {
+        if capacity >= *thresh {
+            let ret = paint(icon, color, "F");
             if module.is_detailed() {
                 return format!("{} {}", ret, capacity);
             } else {
@@ -487,9 +497,9 @@ pub fn cpu(module: &mut Module<(u64, u64)>) -> String {
     let load = 100 - (idle_ratio * 100.0).round() as u32;
 
     // Assign color depending on cpu load
-    for i in (0..CP_THRESHOLDS.len()).rev() {
-        if load >= CP_THRESHOLDS[i] {
-            let ret = paint(CP_IND, CP_COLORS[i], "F");
+    for (color, load_thres) in CPU_RANGES.iter().rev() {
+        if load >= *load_thres {
+            let ret = paint(CP_IND, color, "F");
             if module.is_detailed() {
                 return format!("{} {}", ret, load);
             } else {
