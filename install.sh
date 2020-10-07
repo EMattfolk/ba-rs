@@ -2,6 +2,11 @@
 
 # Compile
 cargo build --release
+status=$?
+if [[ "$status" != "0" ]]; then
+    echo "Aborting compilation"
+    exit $status
+fi
 
 # Kill current running bar
 killall ba
