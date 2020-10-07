@@ -408,7 +408,7 @@ pub fn network(_data: &mut Module<()>) -> String {
     let status_path = String::from(WL_PATH) + "operstate";
     let status = read_to_string(status_path);
     if status.is_err() {
-        return paint("ERROR", ERROR_COLOR, "F");
+        return paint("ERROR: wireless status could not be read", ERROR_COLOR, "F");
     }
     let status = status.unwrap();
 
