@@ -325,7 +325,7 @@ pub fn workspaces(module: &mut Module<i64>) -> String {
 
         if WS_ONLY_LAST_DIGIT {
             let n : u32 = space_icon.parse().expect(
-                "Workspace name is not a number. Please set WS_NUMBERS to\
+                "Workspace name is not a number. Please set WS_ONLY_LAST_DIGIT to\
                  false or change the name of your workspaces.",
             );
             space_icon = format!("{}", n % 10);
