@@ -35,6 +35,7 @@ const W_NAMES: [(&str, &str, bool); 10] = [
 
 // Change this to false if your workspace names are not numbered 1..10
 const WS_NUMBERS: bool = true;
+const WS_ONLY_LAST_DIGIT: bool = true;
 
 // Some colors
 const WHITE: &str = "#f8f6f2";
@@ -332,6 +333,14 @@ pub fn workspaces(module: &mut Module<i64>) -> String {
 
         let space_name = space.name.clone().unwrap();
         let mut space_icon = space_name.clone();
+
+        if WS_ONLY_LAST_DIGIT {
+            let n : u32 = space_icon.parse().expect(
+                "Workspace name is not a number. Please set WS_ONLY_LAST_DIGIT to\
+                 false or change the name of your workspaces.",
+            );
+            space_icon = format!("{}", n % 10);
+        }
 
         let mut focused = space.focused;
 
